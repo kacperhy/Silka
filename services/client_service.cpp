@@ -1,7 +1,7 @@
 // services/client_service.cpp
 #include "client_service.h"
 #include <stdexcept>
-
+#include <iostream>
 ClientService::ClientService(ClientDAO& clientDao) : clientDao(clientDao) {
 }
 
@@ -14,15 +14,20 @@ std::unique_ptr<Client> ClientService::getClientById(int id) {
 }
 
 int ClientService::addClient(const Client& client) {
-    // Tutaj mo¿na dodaæ walidacjê danych klienta przed dodaniem do bazy
-    if (client.getFirstName().empty() || client.getLastName().empty()) {
-        throw std::invalid_argument("Imiê i nazwisko nie mog¹ byæ puste");
+    // Podstawowa walidacja
+    if (client.getFirstName().empty()) {
+        throw std::invalid_argument("Imiê nie mo¿e byæ puste");
     }
 
-    // Sprawdzenie poprawnoœci adresu email (prosta walidacja)
-    if (!client.getEmail().empty() && client.getEmail().find('@') == std::string::npos) {
-        throw std::invalid_argument("Nieprawid³owy format adresu email");
+    if (client.getLastName().empty()) {
+        throw std::invalid_argument("Nazwisko nie mo¿e byæ puste");
     }
+
+    // SprawdŸ, czy dane s¹ niepuste przed dodaniem
+    std::cout << "ClientService - Dane do dodania:\n";
+    std::cout << "Imiê: [" << client.getFirstName() << "]\n";
+    std::cout << "Nazwisko: [" << client.getLastName() << "]\n";
+    std::cout << "Email: [" << client.getEmail() << "]\n";
 
     return clientDao.addClient(client);
 }

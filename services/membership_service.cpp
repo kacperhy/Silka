@@ -1,6 +1,7 @@
 // services/membership_service.cpp
 #include "membership_service.h"
 #include <stdexcept>
+#include <iostream>
 
 MembershipService::MembershipService(MembershipDAO& membershipDao) : membershipDao(membershipDao) {
 }
@@ -88,7 +89,12 @@ Membership MembershipService::createMonthlyMembership(int clientId, bool isStude
     std::string type = isStudent ? "student_monthly" : "normal_monthly";
     double price = calculatePrice(type, isStudent);
 
-    return Membership(-1, clientId, type, currentDate, endDate, price, true);
+    Membership membership(-1, clientId, type, currentDate, endDate, price, true);
+
+    // Debug - sprawdü, czy typ zosta≥ poprawnie ustawiony
+    std::cout << "DEBUG - createMonthlyMembership - ustawiony typ: [" << membership.getType() << "]\n";
+
+    return membership;
 }
 
 Membership MembershipService::createQuarterlyMembership(int clientId, bool isStudent) {

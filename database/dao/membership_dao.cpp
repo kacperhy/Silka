@@ -117,32 +117,69 @@ std::unique_ptr<Membership> MembershipDAO::getActiveMembershipForClient(int clie
 }
 
 int MembershipDAO::addMembership(const Membership& membership) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "INSERT INTO memberships (client_id, type, start_date, end_date, price, is_active) "
-        "VALUES (?, ?, ?, ?, ?, ?)";
+    // Dodaj debug
+    std::cout << "\nDEBUG MembershipDAO::addMembership - Zapisywane dane:\n";
+    std::cout << "  ClientID: " << membership.getClientId() << "\n";
+    std::cout << "  Type: [" << membership.getType() << "]\n";
+    std::cout << "  StartDate: [" << membership.getStartDate() << "]\n";
+    std::cout << "  EndDate: [" << membership.getEndDate() << "]\n";
+    std::cout << "  Price: [" << membership.getPrice() << "]\n";
+    std::cout << "  IsActive: [" << (membership.getIsActive() ? "Tak" : "Nie") << "]\n";
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
+    try {
+        // ZnajdŸ najwy¿sze ID
+        sqlite3* db = dbManager.getConnection();
+        const char* maxIdQuery = "SELECT MAX(id) FROM memberships";
 
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+        sqlite3_stmt* stmt;
+        int rc = sqlite3_prepare_v2(db, maxIdQuery, -1, &stmt, nullptr);
+
+        if (rc != SQLITE_OK) {
+            throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+        }
+
+        int nextId = 1; // Domyœlne ID, jeœli tabela jest pusta
+
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            int maxId = sqlite3_column_int(stmt, 0);
+            nextId = maxId + 1;
+        }
+
+        sqlite3_finalize(stmt);
+
+        // Teraz dodajemy karnet z ustalonym ID
+        const char* insertQuery = "INSERT INTO memberships (id, client_id, type, start_date, end_date, price, is_active) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+        rc = sqlite3_prepare_v2(db, insertQuery, -1, &stmt, nullptr);
+
+        if (rc != SQLITE_OK) {
+            throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+        }
+
+        sqlite3_bind_int(stmt, 1, nextId);
+        sqlite3_bind_int(stmt, 2, membership.getClientId());
+        sqlite3_bind_text(stmt, 3, membership.getType().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 4, membership.getStartDate().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 5, membership.getEndDate().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_double(stmt, 6, membership.getPrice());
+        sqlite3_bind_int(stmt, 7, membership.getIsActive() ? 1 : 0);
+
+        rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+
+        if (rc != SQLITE_DONE) {
+            throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
+        }
+
+        return nextId;
     }
-
-    sqlite3_bind_int(stmt, 1, membership.getClientId());
-    sqlite3_bind_text(stmt, 2, membership.getType().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 3, membership.getStartDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 4, membership.getEndDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_double(stmt, 5, membership.getPrice());
-    sqlite3_bind_int(stmt, 6, membership.getIsActive() ? 1 : 0);
-
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
+    catch (const std::exception& e) {
+        throw DatabaseException(std::string("B³¹d podczas dodawania karnetu: ") + e.what());
     }
-
-    return dbManager.getLastInsertRowId();
+    catch (...) {
+        throw DatabaseException("Nieznany b³¹d podczas dodawania karnetu");
+    }
 }
 
 bool MembershipDAO::updateMembership(const Membership& membership) {

@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 #include <windows.h>
+#include <limits>
 
 
 #include "../database/db_manager.h"
@@ -76,14 +77,37 @@ void displayMenu() {
 
 // Funkcja do dodawania nowego klienta
 void addNewClient(ClientService& clientService) {
+    std::cout << "\n=== Dodawanie nowego klienta ===\n";
+
     std::string firstName, lastName, email, phone, birthDate, notes;
 
-    std::cin.ignore();
-    std::cout << "Podaj imię: ";
-    std::getline(std::cin, firstName);
+    // Czyszczenie bufora przed rozpoczęciem wprowadzania danych
+    std::cin.ignore(1000, '\n');
 
-    std::cout << "Podaj nazwisko: ";
-    std::getline(std::cin, lastName);
+    // Pobieranie danych od użytkownika z walidacją
+    bool valid = false;
+    while (!valid) {
+        std::cout << "Podaj imię: ";
+        std::getline(std::cin, firstName);
+        if (firstName.empty()) {
+            std::cout << "Imię nie może być puste. Spróbuj ponownie.\n";
+        }
+        else {
+            valid = true;
+        }
+    }
+
+    valid = false;
+    while (!valid) {
+        std::cout << "Podaj nazwisko: ";
+        std::getline(std::cin, lastName);
+        if (lastName.empty()) {
+            std::cout << "Nazwisko nie może być puste. Spróbuj ponownie.\n";
+        }
+        else {
+            valid = true;
+        }
+    }
 
     std::cout << "Podaj email: ";
     std::getline(std::cin, email);
@@ -97,23 +121,32 @@ void addNewClient(ClientService& clientService) {
     std::cout << "Podaj uwagi: ";
     std::getline(std::cin, notes);
 
-    Client client(-1, firstName, lastName, email, phone, birthDate, "", notes);
+    // Podsumowanie wprowadzonych danych przed dodaniem
+    std::cout << "\nPodsumowanie wprowadzonych danych:\n";
+    std::cout << "Imię: [" << firstName << "]\n";
+    std::cout << "Nazwisko: [" << lastName << "]\n";
+    std::cout << "Email: [" << email << "]\n";
+    std::cout << "Telefon: [" << phone << "]\n";
+    std::cout << "Data urodzenia: [" << birthDate << "]\n";
+    std::cout << "Uwagi: [" << notes << "]\n";
 
-    try {
-        int id = clientService.addClient(client);
-        std::cout << "Dodano nowego klienta z ID: " << id << std::endl;
+    std::cout << "\nCzy dane są poprawne? (T/N): ";
+    char confirm;
+    std::cin >> confirm;
+
+    if (confirm == 'T' || confirm == 't') {
+        Client client(-1, firstName, lastName, email, phone, birthDate, "", notes);
+
+        try {
+            int id = clientService.addClient(client);
+            std::cout << "Dodano nowego klienta z ID: " << id << std::endl;
+        }
+        catch (const std::exception& e) {
+            std::cerr << "Błąd dodawania klienta: " << e.what() << std::endl;
+        }
     }
-    catch (const DatabaseException& e) {
-        std::cerr << "Błąd bazy danych: " << e.what() << std::endl;
-    }
-    catch (const std::invalid_argument& e) {
-        std::cerr << "Błąd walidacji danych: " << e.what() << std::endl;
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Wystąpił błąd: " << e.what() << std::endl;
-    }
-    catch (...) {
-        std::cerr << "Wystąpił nieznany błąd" << std::endl;
+    else {
+        std::cout << "Anulowano dodawanie klienta.\n";
     }
 }
 
@@ -204,22 +237,37 @@ void addMembershipForClient(ClientService& clientService, MembershipService& mem
     }
 
     Membership membership;
+    std::string membershipTypeName;
 
     try {
         switch (membershipType) {
         case 1:
             membership = membershipService.createMonthlyMembership(clientId, isStudent);
+            membershipTypeName = isStudent ? "student_monthly" : "normal_monthly";
             break;
         case 2:
             membership = membershipService.createQuarterlyMembership(clientId, isStudent);
+            membershipTypeName = isStudent ? "student_quarterly" : "normal_quarterly";
             break;
         case 3:
             membership = membershipService.createYearlyMembership(clientId, isStudent);
+            membershipTypeName = isStudent ? "student_yearly" : "normal_yearly";
             break;
         default:
             std::cout << "Nieprawidłowy wybór rodzaju karnetu." << std::endl;
             return;
         }
+
+        // Upewnij się, że typ jest ustawiony
+        membership.setType(membershipTypeName);
+
+        // Debug - pokaż dane przed dodaniem
+        std::cout << "DEBUG - Dane karnetu przed dodaniem:\n";
+        std::cout << "  ClientID: " << membership.getClientId() << "\n";
+        std::cout << "  Type: [" << membership.getType() << "]\n";
+        std::cout << "  StartDate: [" << membership.getStartDate() << "]\n";
+        std::cout << "  EndDate: [" << membership.getEndDate() << "]\n";
+        std::cout << "  Price: [" << membership.getPrice() << "]\n";
 
         int id = membershipService.addMembership(membership);
         std::cout << "Dodano nowy karnet z ID: " << id << std::endl;
@@ -230,7 +278,6 @@ void addMembershipForClient(ClientService& clientService, MembershipService& mem
         std::cerr << "Błąd: " << e.what() << std::endl;
     }
 }
-
 // Funkcja do wyświetlania karnetów klienta
 void displayMembershipsForClient(ClientService& clientService, MembershipService& membershipService) {
     int clientId;
@@ -252,17 +299,41 @@ void displayMembershipsForClient(ClientService& clientService, MembershipService
     }
 
     std::cout << "\n=== Karnety klienta " << client->getFullName() << " ===\n";
-    std::cout << "ID\tRodzaj\tData rozpoczęcia\tData zakończenia\tCena\tAktywny\tWażny\tDni pozostałe\n";
+    std::cout << std::left
+        << std::setw(8) << "ID"
+        << std::setw(15) << "Rodzaj"
+        << std::setw(25) << "Data rozpoczęcia"
+        << std::setw(25) << "Data zakończenia"
+        << std::setw(10) << "Cena"
+        << std::setw(8) << "Aktywny"
+        << std::setw(8) << "Ważny"
+        << std::setw(15) << "Dni pozostałe"
+        << std::endl;
+    std::cout << std::string(110, '-') << std::endl;
+
+    // Dodaj debug do sprawdzenia danych
+    std::cout << "DEBUG - Liczba znalezionych karnetów: " << memberships.size() << std::endl;
 
     for (const auto& membership : memberships) {
-        std::cout << membership.getId() << "\t"
-            << membership.getType() << "\t"
-            << membership.getStartDate() << "\t"
-            << membership.getEndDate() << "\t"
-            << membership.getPrice() << " zł\t"
-            << (membership.getIsActive() ? "Tak" : "Nie") << "\t"
-            << (membership.isValid() ? "Tak" : "Nie") << "\t"
-            << membership.daysLeft() << "\n";
+        // Debug każdego pola karnetu przed wyświetleniem
+        std::cout << "DEBUG - Dane karnetu ID " << membership.getId() << ":\n";
+        std::cout << "  Type: [" << membership.getType() << "]\n";
+        std::cout << "  StartDate: [" << membership.getStartDate() << "]\n";
+        std::cout << "  EndDate: [" << membership.getEndDate() << "]\n";
+        std::cout << "  Price: [" << membership.getPrice() << "]\n";
+        std::cout << "  IsActive: [" << (membership.getIsActive() ? "Tak" : "Nie") << "]\n";
+
+        // Właściwe wyświetlenie
+        std::cout << std::left
+            << std::setw(8) << membership.getId()
+            << std::setw(15) << membership.getType()
+            << std::setw(25) << membership.getStartDate()
+            << std::setw(25) << membership.getEndDate()
+            << std::setw(10) << membership.getPrice() << " zł"
+            << std::setw(8) << (membership.getIsActive() ? "Tak" : "Nie")
+            << std::setw(8) << (membership.isValid() ? "Tak" : "Nie")
+            << std::setw(15) << membership.daysLeft()
+            << std::endl;
     }
 }
 
@@ -468,8 +539,13 @@ int main() {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
 
-    // Ustaw locale dla poprawnego parsowania danych
-    std::setlocale(LC_ALL, "pl_PL.UTF-8");
+    // Ustaw lokalizację na polską
+    try {
+        std::locale::global(std::locale("pl_PL.UTF-8"));
+    }
+    catch (const std::exception&) {
+        std::cout << "Nie udało się ustawić lokalnych ustawień. Używanie domyślnych.\n";
+    }
     try {
         // Inicjalizacja bazy danych
         DBManager dbManager("silka_system.db");
@@ -489,6 +565,15 @@ int main() {
         // Inicjalizacja klas importu/eksportu
         DataImport dataImport(clientService, membershipService, classService);
         DataExport dataExport(clientService, membershipService, classService);
+
+        try {
+            dbManager.executeQuery("INSERT INTO clients (id, first_name, last_name, email, phone, birth_date, registration_date, notes) "
+                "VALUES (100, 'Test', 'Testowy', 'test@test.com', '123456789', '2000-01-01', '2025-05-12', 'Test')");
+            std::cout << "Testowy rekord dodany pomyślnie!" << std::endl;
+        }
+        catch (const DatabaseException& e) {
+            std::cerr << "Błąd dodawania testowego rekordu: " << e.what() << std::endl;
+        }
 
         int choice;
 
