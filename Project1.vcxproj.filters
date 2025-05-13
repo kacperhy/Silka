@@ -15,93 +15,93 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="utils\data_export.cpp">
+    <ClCompile Include="utils\eksport_danych.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="utils\data_import.cpp">
+    <ClCompile Include="utils\import_danych.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="tests\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="services\class_service.cpp">
+    <ClCompile Include="services\uslugi_zajec.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="services\client_service.cpp">
+    <ClCompile Include="services\uslugi_klienta.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="services\membership_service.cpp">
+    <ClCompile Include="services\uslugi_karnetu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="services\report_service.cpp">
+    <ClCompile Include="services\uslugi_raportow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="models\client.cpp">
+    <ClCompile Include="models\klient.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="models\gym_class.cpp">
+    <ClCompile Include="models\zajecia.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="models\membership.cpp">
+    <ClCompile Include="models\karnet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="models\reservation.cpp">
+    <ClCompile Include="models\rezerwacja.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="database\db_manager.cpp">
+    <ClCompile Include="database\menedzer_bd.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="database\dao\class_dao.cpp">
+    <ClCompile Include="database\dao\zajecia_dao.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="database\dao\client_dao.cpp">
+    <ClCompile Include="database\dao\klient_dao.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="database\dao\membership_dao.cpp">
+    <ClCompile Include="database\dao\karnet_dao.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="utils\data_export.h">
+    <ClInclude Include="utils\eksport_danych.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="utils\data_import.h">
+    <ClInclude Include="utils\import_danych.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="services\class_service.h">
+    <ClInclude Include="services\uslugi_zajec.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="services\client_service.h">
+    <ClInclude Include="services\uslugi_klienta.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="services\membership_service.h">
+    <ClInclude Include="services\uslugi_karnetu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="services\report_service.h">
+    <ClInclude Include="services\uslugi_raportow.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="models\client.h">
+    <ClInclude Include="models\klient.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="models\gym_class.h">
+    <ClInclude Include="models\zajecia.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="models\membership.h">
+    <ClInclude Include="models\karnet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="models\reservation.h">
+    <ClInclude Include="models\rezerwacja.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="database\db_manager.h">
+    <ClInclude Include="database\menedzer_bd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="database\dao\class_dao.h">
+    <ClInclude Include="database\dao\zajecia_dao.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="database\dao\client_dao.h">
+    <ClInclude Include="database\dao\klient_dao.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="database\dao\membership_dao.h">
+    <ClInclude Include="database\dao\karnet_dao.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
