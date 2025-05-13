@@ -130,37 +130,37 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="database\dao\zajecia_dao.cpp" />
-    <ClCompile Include="database\dao\klient_dao.cpp" />
-    <ClCompile Include="database\dao\karnet_dao.cpp" />
-    <ClCompile Include="database\menedzer_bd.cpp" />
-    <ClCompile Include="models\klient.cpp" />
-    <ClCompile Include="models\zajecia.cpp" />
-    <ClCompile Include="models\karnet.cpp" />
-    <ClCompile Include="models\rezerwacja.cpp" />
-    <ClCompile Include="services\uslugi_zajec.cpp" />
-    <ClCompile Include="services\uslugi_klienta.cpp" />
-    <ClCompile Include="services\uslugi_karnetu.cpp" />
-    <ClCompile Include="services\uslugi_raportow.cpp" />
+    <ClCompile Include="database\dao\class_dao.cpp" />
+    <ClCompile Include="database\dao\client_dao.cpp" />
+    <ClCompile Include="database\dao\membership_dao.cpp" />
+    <ClCompile Include="database\db_manager.cpp" />
+    <ClCompile Include="models\client.cpp" />
+    <ClCompile Include="models\gym_class.cpp" />
+    <ClCompile Include="models\membership.cpp" />
+    <ClCompile Include="models\reservation.cpp" />
+    <ClCompile Include="services\class_service.cpp" />
+    <ClCompile Include="services\client_service.cpp" />
+    <ClCompile Include="services\membership_service.cpp" />
+    <ClCompile Include="services\report_service.cpp" />
     <ClCompile Include="tests\main.cpp" />
-    <ClCompile Include="utils\eksport_danych.cpp" />
-    <ClCompile Include="utils\import_danych.cpp" />
+    <ClCompile Include="utils\data_export.cpp" />
+    <ClCompile Include="utils\data_import.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="database\dao\zajecia_dao.h" />
-    <ClInclude Include="database\dao\klient_dao.h" />
-    <ClInclude Include="database\dao\karnet_dao.h" />
-    <ClInclude Include="database\menedzer_bd.h" />
-    <ClInclude Include="models\klient.h" />
-    <ClInclude Include="models\zajecia.h" />
-    <ClInclude Include="models\karnet.h" />
-    <ClInclude Include="models\rezerwacja.h" />
-    <ClInclude Include="services\uslugi_zajec.h" />
-    <ClInclude Include="services\uslugi_klienta.h" />
-    <ClInclude Include="services\uslugi_karnetu.h" />
-    <ClInclude Include="services\uslugi_raportow.h" />
-    <ClInclude Include="utils\eksport_danych.h" />
-    <ClInclude Include="utils\import_danych.h" />
+    <ClInclude Include="database\dao\class_dao.h" />
+    <ClInclude Include="database\dao\client_dao.h" />
+    <ClInclude Include="database\dao\membership_dao.h" />
+    <ClInclude Include="database\db_manager.h" />
+    <ClInclude Include="models\client.h" />
+    <ClInclude Include="models\gym_class.h" />
+    <ClInclude Include="models\membership.h" />
+    <ClInclude Include="models\reservation.h" />
+    <ClInclude Include="services\class_service.h" />
+    <ClInclude Include="services\client_service.h" />
+    <ClInclude Include="services\membership_service.h" />
+    <ClInclude Include="services\report_service.h" />
+    <ClInclude Include="utils\data_export.h" />
+    <ClInclude Include="utils\data_import.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="tests\CMakeLists.txt" />
