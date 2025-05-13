@@ -1,4 +1,4 @@
-// services/uslugi_raportow.h
+
 #ifndef USLUGI_RAPORTOW_H
 #define USLUGI_RAPORTOW_H
 
@@ -7,7 +7,7 @@
 #include <map>
 #include "../database/menedzer_bd.h"
 
-// Struktura dla raportu aktywnoœci klienta
+
 struct RaportAktywnosciKlienta {
     std::string nazwaKlienta;
     int lacznaLiczbaZajec;
@@ -16,7 +16,7 @@ struct RaportAktywnosciKlienta {
     std::string ostatniaWizyta;
 };
 
-// Struktura dla raportu popularnoœci zajêæ
+
 struct RaportPopularnosciZajec {
     std::string nazwaZajec;
     std::string trener;
@@ -24,7 +24,7 @@ struct RaportPopularnosciZajec {
     double stopienWypelnienia;  // w procentach
 };
 
-// Struktura dla raportu finansowego
+
 struct RaportFinansowy {
     double lacznyPrzychod;
     int lacznaLiczbaKarnetow;
@@ -38,7 +38,7 @@ class UslugiRaportow {
 public:
     explicit UslugiRaportow(MenedzerBD& menedzerBD);
 
-    // Metody generowania raportów
+
     std::vector<RaportAktywnosciKlienta> generujRaportAktywnosciKlienta(
         const std::string& dataOd, const std::string& dataDo);
 
@@ -52,4 +52,4 @@ private:
     MenedzerBD& menedzerBD;
 };
 
-#endif // USLUGI_RAPORTOW_H
+#endif 

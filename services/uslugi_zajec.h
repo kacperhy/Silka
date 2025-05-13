@@ -13,21 +13,18 @@ class UslugiZajec {
 public:
     UslugiZajec(ZajeciaDAO& zajeciaDAO, UslugiKarnetu& uslugiKarnetu);
 
-    // Metody zarz¹dzania zajêciami
     std::vector<Zajecia> pobierzWszystkieZajecia();
     std::unique_ptr<Zajecia> pobierzZajeciaPoId(int id);
     int dodajZajecia(const Zajecia& zajecia);
     bool aktualizujZajecia(const Zajecia& zajecia);
     bool usunZajecia(int id);
 
-    // Metody rezerwacji
     std::vector<Rezerwacja> pobierzWszystkieRezerwacje();
     std::vector<Rezerwacja> pobierzRezerwacjeKlienta(int idKlienta);
     std::vector<Rezerwacja> pobierzRezerwacjeZajec(int idZajec);
     int dodajRezerwacje(const Rezerwacja& rezerwacja);
     bool anulujRezerwacje(int idRezerwacji);
 
-    // Metody biznesowe
     int pobierzDostepneMiejscaZajec(int idZajec);
     bool czyKlientUprawniony(int idKlienta, int idZajec);
 
@@ -36,4 +33,4 @@ private:
     UslugiKarnetu& uslugiKarnetu;
 };
 
-#endif // USLUGI_ZAJEC_H
+#endif 

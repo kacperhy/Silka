@@ -1,4 +1,3 @@
-// models/karnet.cpp
 #define _CRT_SECURE_NO_WARNINGS
 #include "karnet.h"
 #include <ctime>
@@ -99,7 +98,7 @@ std::string Karnet::pobierzAktualnaDate() {
 std::string Karnet::dodajDniDoData(const std::string& data, int dni) {
     std::tm tm = konwertujStringNaDate(data);
     std::time_t t = std::mktime(&tm);
-    t += dni * 24 * 60 * 60;  // Dodaj dni w sekundach
+    t += dni * 24 * 60 * 60; 
     tm = *std::localtime(&t);
 
     std::ostringstream oss;
@@ -110,8 +109,8 @@ std::string Karnet::dodajDniDoData(const std::string& data, int dni) {
 std::tm Karnet::konwertujStringNaDate(const std::string& tekstDaty) {
     std::tm tm = {};
     if (sscanf(tekstDaty.c_str(), "%d-%d-%d", &tm.tm_year, &tm.tm_mon, &tm.tm_mday) == 3) {
-        tm.tm_year -= 1900;  // Lata s¹ liczone od 1900
-        tm.tm_mon -= 1;      // Miesi¹ce s¹ liczone od 0 (0-11)
+        tm.tm_year -= 1900;  
+        tm.tm_mon -= 1;      
         return tm;
     }
     throw std::runtime_error("Nieprawid³owy format daty: " + tekstDaty);
@@ -124,6 +123,5 @@ int Karnet::dniPomiedzy(const std::string& data1, const std::string& data2) {
     std::time_t t1 = std::mktime(&tm1);
     std::time_t t2 = std::mktime(&tm2);
 
-    // Obliczamy ró¿nicê w sekundach i konwertujemy na dni
     return static_cast<int>((t2 - t1) / (24 * 60 * 60));
 }

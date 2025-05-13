@@ -1,4 +1,3 @@
-// database/dao/zajecia_dao.cpp
 #include "zajecia_dao.h"
 #include <sstream>
 

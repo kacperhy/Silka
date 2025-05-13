@@ -1,4 +1,3 @@
-// database/dao/klient_dao.cpp
 #include "klient_dao.h"
 #include <sstream>
 

@@ -1,4 +1,3 @@
-// services/uslugi_karnetu.cpp
 #include "uslugi_karnetu.h"
 
 UslugiKarnetu::UslugiKarnetu(KarnetDAO& karnetDAO) : karnetDAO(karnetDAO) {

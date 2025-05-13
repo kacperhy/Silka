@@ -1,4 +1,3 @@
-// tests/main.cpp
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -53,7 +52,6 @@ void usunKlientaPoId(UslugiKlienta& uslugiKlienta) {
     }
 }
 
-// Funkcja wyświetlająca menu główne
 void wyswietlMenu() {
     std::cout << "\n===== System zarządzania siłownią =====\n";
     std::cout << "1. Dodaj nowego klienta\n";
@@ -75,16 +73,13 @@ void wyswietlMenu() {
     std::cout << "Wybierz opcję: ";
 }
 
-// Funkcja do dodawania nowego klienta
 void dodajNowegoKlienta(UslugiKlienta& uslugiKlienta) {
     std::cout << "\n=== Dodawanie nowego klienta ===\n";
 
     std::string imie, nazwisko, email, telefon, dataUrodzenia, uwagi;
 
-    // Czyszczenie bufora przed rozpoczęciem wprowadzania danych
     std::cin.ignore(1000, '\n');
 
-    // Pobieranie danych od użytkownika z walidacją
     bool poprawne = false;
     while (!poprawne) {
         std::cout << "Podaj imię: ";
@@ -121,7 +116,6 @@ void dodajNowegoKlienta(UslugiKlienta& uslugiKlienta) {
     std::cout << "Podaj uwagi: ";
     std::getline(std::cin, uwagi);
 
-    // Podsumowanie wprowadzonych danych przed dodaniem
     std::cout << "\nPodsumowanie wprowadzonych danych:\n";
     std::cout << "Imię: [" << imie << "]\n";
     std::cout << "Nazwisko: [" << nazwisko << "]\n";
@@ -150,7 +144,6 @@ void dodajNowegoKlienta(UslugiKlienta& uslugiKlienta) {
     }
 }
 
-// Funkcja do wyświetlania wszystkich klientów
 void wyswietlWszystkichKlientow(UslugiKlienta& uslugiKlienta) {
     auto klienci = uslugiKlienta.pobierzWszystkichKlientow();
 
@@ -180,7 +173,6 @@ void wyswietlWszystkichKlientow(UslugiKlienta& uslugiKlienta) {
     }
 }
 
-// Funkcja do wyszukiwania klientów
 void wyszukajKlientow(UslugiKlienta& uslugiKlienta) {
     std::string fraza;
     std::cin.ignore();
@@ -206,7 +198,6 @@ void wyszukajKlientow(UslugiKlienta& uslugiKlienta) {
     }
 }
 
-// Funkcja do dodawania karnetu dla klienta
 void dodajKarnetDlaKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKarnetu) {
     int idKlienta;
     int typKarnetu;
@@ -258,10 +249,8 @@ void dodajKarnetDlaKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKa
             return;
         }
 
-        // Upewnij się, że typ jest ustawiony
         karnet.ustawTyp(nazwaTypuKarnetu);
 
-        // Diagnostyka - pokaż dane przed dodaniem
         std::cout << "DIAGNOSTYKA - Dane karnetu przed dodaniem:\n";
         std::cout << "  ID Klienta: " << karnet.pobierzIdKlienta() << "\n";
         std::cout << "  Typ: [" << karnet.pobierzTyp() << "]\n";
@@ -279,7 +268,6 @@ void dodajKarnetDlaKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKa
     }
 }
 
-// Funkcja do wyświetlania karnetów klienta
 void wyswietlKarnetyKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKarnetu) {
     int idKlienta;
 
@@ -312,11 +300,9 @@ void wyswietlKarnetyKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiK
         << std::endl;
     std::cout << std::string(110, '-') << std::endl;
 
-    // Dodaj diagnostykę do sprawdzenia danych
     std::cout << "DIAGNOSTYKA - Liczba znalezionych karnetów: " << karnety.size() << std::endl;
 
     for (const auto& karnet : karnety) {
-        // Diagnostyka każdego pola karnetu przed wyświetleniem
         std::cout << "DIAGNOSTYKA - Dane karnetu ID " << karnet.pobierzId() << ":\n";
         std::cout << "  Typ: [" << karnet.pobierzTyp() << "]\n";
         std::cout << "  Data rozpoczęcia: [" << karnet.pobierzDateRozpoczecia() << "]\n";
@@ -324,7 +310,6 @@ void wyswietlKarnetyKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiK
         std::cout << "  Cena: [" << karnet.pobierzCene() << "]\n";
         std::cout << "  Czy aktywny: [" << (karnet.pobierzCzyAktywny() ? "Tak" : "Nie") << "]\n";
 
-        // Właściwe wyświetlenie
         std::cout << std::left
             << std::setw(8) << karnet.pobierzId()
             << std::setw(15) << karnet.pobierzTyp()
@@ -338,7 +323,6 @@ void wyswietlKarnetyKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiK
     }
 }
 
-// Funkcja do dodawania zajęć grupowych
 void dodajZajeciaGrupowe(UslugiZajec& uslugiZajec) {
     std::string nazwa, trener, data, czas, opis;
     int maksUczestnikow, czasTrwania;
@@ -378,7 +362,6 @@ void dodajZajeciaGrupowe(UslugiZajec& uslugiZajec) {
     }
 }
 
-// Funkcja do wyświetlania wszystkich zajęć
 void wyswietlWszystkieZajecia(UslugiZajec& uslugiZajec) {
     auto zajecia = uslugiZajec.pobierzWszystkieZajecia();
 
@@ -404,7 +387,6 @@ void wyswietlWszystkieZajecia(UslugiZajec& uslugiZajec) {
     }
 }
 
-// Funkcja do rezerwacji miejsca na zajęciach
 void zarezerwujMiejsceNaZajeciach(UslugiKlienta& uslugiKlienta, UslugiZajec& uslugiZajec) {
     int idKlienta, idZajec;
 
@@ -452,7 +434,6 @@ void zarezerwujMiejsceNaZajeciach(UslugiKlienta& uslugiKlienta, UslugiZajec& usl
     }
 }
 
-// Funkcja do generowania raportów aktywności
 void generujRaportAktywnosci(UslugiRaportow& uslugiRaportow) {
     int typRaportu;
 
@@ -538,11 +519,10 @@ void generujRaportAktywnosci(UslugiRaportow& uslugiRaportow) {
 }
 
 int main() {
-    // Ustawienie kodowania UTF-8 dla konsoli
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
 
-    // Ustaw lokalizację na polską
+  
     try {
         std::locale::global(std::locale("pl_PL.UTF-8"));
     }
@@ -550,22 +530,18 @@ int main() {
         std::cout << "Nie udało się ustawić lokalnych ustawień. Używanie domyślnych.\n";
     }
     try {
-        // Inicjalizacja bazy danych
         MenedzerBD menedzerBD("silka_system.db");
         menedzerBD.otworz();
 
-        // Inicjalizacja DAO
         KlientDAO klientDAO(menedzerBD);
         KarnetDAO karnetDAO(menedzerBD);
         ZajeciaDAO zajeciaDAO(menedzerBD);
 
-        // Inicjalizacja usług
         UslugiKlienta uslugiKlienta(klientDAO);
         UslugiKarnetu uslugiKarnetu(karnetDAO);
         UslugiZajec uslugiZajec(zajeciaDAO, uslugiKarnetu);
         UslugiRaportow uslugiRaportow(menedzerBD);
 
-        // Inicjalizacja klas importu/eksportu
         ImportDanych importDanych(uslugiKlienta, uslugiKarnetu, uslugiZajec);
         EksportDanych eksportDanych(uslugiKlienta, uslugiKarnetu, uslugiZajec);
 
@@ -616,7 +592,6 @@ int main() {
                 usunKlientaPoId(uslugiKlienta);
                 break;
             case 11: {
-                // Import danych z pliku CSV
                 int typImportu;
                 std::string sciezkaPliku;
 
@@ -662,7 +637,6 @@ int main() {
             }
 
             case 12: {
-                // Import danych z pliku JSON
                 int typImportu;
                 std::string sciezkaPliku;
 
@@ -707,7 +681,6 @@ int main() {
                 break;
             }
             case 13: {
-                // Eksport danych do pliku CSV
                 int typEksportu;
                 std::string sciezkaPliku;
 
@@ -754,7 +727,6 @@ int main() {
                 break;
             }
             case 14: {
-                // Eksport danych do pliku JSON
                 int typEksportu;
                 std::string sciezkaPliku;
 
@@ -808,7 +780,6 @@ int main() {
             }
         } while (wybor != 0);
 
-        // Zamknięcie bazy danych
         menedzerBD.zamknij();
     }
     catch (const WyjatekBazyDanych& e) {

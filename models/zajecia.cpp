@@ -1,4 +1,3 @@
-// models/gym_class.cpp (przemianowany na models/zajecia.cpp)
 #include "zajecia.h"
 
 Zajecia::Zajecia() : id(-1), nazwa(""), trener(""), maksUczestnikow(0),

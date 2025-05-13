@@ -1,4 +1,3 @@
-// services/uslugi_klienta.cpp
 #include "uslugi_klienta.h"
 
 UslugiKlienta::UslugiKlienta(KlientDAO& klientDAO) : klientDAO(klientDAO) {

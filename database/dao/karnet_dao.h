@@ -1,4 +1,3 @@
-// database/dao/karnet_dao.h
 #ifndef KARNET_DAO_H
 #define KARNET_DAO_H
 
@@ -11,7 +10,7 @@ class KarnetDAO {
 public:
     explicit KarnetDAO(MenedzerBD& menedzerBD);
 
-    // Metody CRUD
+
     std::vector<Karnet> pobierzWszystkie();
     std::unique_ptr<Karnet> pobierzPoId(int id);
     std::vector<Karnet> pobierzDlaKlienta(int idKlienta);
@@ -19,14 +18,14 @@ public:
     bool aktualizuj(const Karnet& karnet);
     bool usun(int id);
 
-    // Metody biznesowe
+
     bool czyKlientMaAktywnyKarnet(int idKlienta);
 
 private:
     MenedzerBD& menedzerBD;
 
-    // Metody pomocnicze
+
     Karnet utworzKarnetZWiersza(const WierszBD& wiersz);
 };
 
-#endif // KARNET_DAO_H
+#endif 

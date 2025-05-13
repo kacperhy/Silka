@@ -1,4 +1,3 @@
-// services/client_service.h (przemianowany na services/uslugi_klienta.h)
 #ifndef USLUGI_KLIENTA_H
 #define USLUGI_KLIENTA_H
 
@@ -12,7 +11,6 @@ class UslugiKlienta {
 public:
     explicit UslugiKlienta(KlientDAO& klientDAO);
 
-    // Metody biznesowe
     std::vector<Klient> pobierzWszystkichKlientow();
     std::unique_ptr<Klient> pobierzKlientaPoId(int id);
     int dodajKlienta(const Klient& klient);
@@ -24,4 +22,4 @@ private:
     KlientDAO& klientDAO;
 };
 
-#endif // USLUGI_KLIENTA_H
+#endif 

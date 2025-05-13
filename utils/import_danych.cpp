@@ -1,4 +1,3 @@
-// utils/import_danych.cpp
 #include "import_danych.h"
 #include <fstream>
 #include <sstream>
@@ -9,9 +8,7 @@
 #include <cstring>
 #include <cctype>
 
-// Funkcje pomocnicze dla JSON
 namespace {
-    // Prosta funkcja do usuwania białych znaków z JSON
     std::string usunBialeZnaki(const std::string& wejscie) {
         std::string wyjscie;
         wyjscie.reserve(wejscie.size());
@@ -30,7 +27,6 @@ namespace {
         return wyjscie;
     }
 
-    // Prosta funkcja do podziału stringa na wektory po separatorze
     std::vector<std::string> podziel(const std::string& wejscie, char separator) {
         std::vector<std::string> wynik;
         std::stringstream ss(wejscie);
@@ -43,7 +39,6 @@ namespace {
         return wynik;
     }
 
-    // Funkcja pomocnicza do parsowania wartości pól z cudzysłowami w CSV
     std::string usunCudzyslow(const std::string& s) {
         if (s.size() >= 2 && s.front() == '"' && s.back() == '"') {
             return s.substr(1, s.size() - 2);
@@ -51,7 +46,6 @@ namespace {
         return s;
     }
 
-    // Funkcja pomocnicza do usuwania białych znaków z początku i końca stringa
     std::string przytnij(const std::string& s) {
         auto start = s.begin();
         while (start != s.end() && std::isspace(*start)) {
@@ -80,7 +74,6 @@ std::vector<std::vector<std::string>> ImportDanych::analizujCSV(const std::strin
     std::vector<std::vector<std::string>> dane;
     std::string linia;
 
-    // Pomijamy nagłówek (pierwsza linia)
     std::getline(plik, linia);
 
     while (std::getline(plik, linia)) {
@@ -128,8 +121,7 @@ Klient ImportDanych::analizujWierszKlienta(const std::vector<std::string>& wiers
 
     Klient klient;
 
-    // Zakładamy format: id, imie, nazwisko, email, telefon, data_urodzenia, data_rejestracji, uwagi
-    // ID pomijamy, ponieważ zostanie nadane przez bazę danych
+
     klient.ustawImie(usunCudzyslow(wiersz[1]));
     klient.ustawNazwisko(usunCudzyslow(wiersz[2]));
     klient.ustawEmail(usunCudzyslow(wiersz[3]));
@@ -154,8 +146,6 @@ Karnet ImportDanych::analizujWierszKarnetu(const std::vector<std::string>& wiers
 
     Karnet karnet;
 
-    // Zakładamy format: id, id_klienta, typ, data_rozpoczecia, data_zakonczenia, cena, czy_aktywny
-    // ID pomijamy, ponieważ zostanie nadane przez bazę danych
     karnet.ustawIdKlienta(std::stoi(usunCudzyslow(wiersz[1])));
     karnet.ustawTyp(usunCudzyslow(wiersz[2]));
     karnet.ustawDateRozpoczecia(usunCudzyslow(wiersz[3]));
@@ -176,8 +166,7 @@ Zajecia ImportDanych::analizujWierszZajec(const std::vector<std::string>& wiersz
 
     Zajecia zajecia;
 
-    // Zakładamy format: id, nazwa, trener, maks_uczestnikow, data, czas, czas_trwania, opis
-    // ID pomijamy, ponieważ zostanie nadane przez bazę danych
+
     zajecia.ustawNazwe(usunCudzyslow(wiersz[1]));
     zajecia.ustawTrenera(usunCudzyslow(wiersz[2]));
     zajecia.ustawMaksUczestnikow(std::stoi(usunCudzyslow(wiersz[3])));
@@ -243,8 +232,7 @@ std::vector<Zajecia> ImportDanych::importujZajeciaZCSV(const std::string& sciezk
     return zajecia;
 }
 
-// UWAGA: To jest bardzo prosta implementacja parsowania JSON, która nie jest odporna na wszystkie przypadki.
-// W rzeczywistej aplikacji zalecane byłoby użycie biblioteki do obsługi JSON, np. nlohmann/json.
+
 std::string ImportDanych::wczytajPlikJSON(const std::string& sciezkaPliku) {
     std::ifstream plik(sciezkaPliku);
     if (!plik.is_open()) {
@@ -259,15 +247,13 @@ std::string ImportDanych::wczytajPlikJSON(const std::string& sciezkaPliku) {
 }
 
 std::vector<Klient> ImportDanych::importujKlientowZJSON(const std::string& sciezkaPliku) {
-    // UWAGA: Ta implementacja jest bardzo uproszczona i nie obsługuje wszystkich przypadków.
-    // W rzeczywistym projekcie warto użyć biblioteki JSON.
+
     std::vector<Klient> klienci;
 
     try {
         std::string json = wczytajPlikJSON(sciezkaPliku);
         json = usunBialeZnaki(json);
 
-        // Proste parsowanie tablicy JSON: znajdujemy "[" i "]" oraz dzielimy dane między nimi po "},"
         size_t start = json.find('[');
         size_t koniec = json.rfind(']');
 
@@ -283,12 +269,11 @@ std::vector<Klient> ImportDanych::importujKlientowZJSON(const std::string& sciez
         std::string token;
 
         while ((pos = zawartoscTablicy.find(delimiter)) != std::string::npos) {
-            token = zawartoscTablicy.substr(0, pos + 1); // Dodajemy "}" do tokena
+            token = zawartoscTablicy.substr(0, pos + 1); 
             objektyKlientow.push_back(token);
-            zawartoscTablicy.erase(0, pos + delimiter.length() - 1); // Pozostawiamy "{" w kolejnym tokenie
+            zawartoscTablicy.erase(0, pos + delimiter.length() - 1); 
         }
 
-        // Dodajemy ostatni obiekt
         if (!zawartoscTablicy.empty()) {
             objektyKlientow.push_back(zawartoscTablicy);
         }
@@ -296,15 +281,13 @@ std::vector<Klient> ImportDanych::importujKlientowZJSON(const std::string& sciez
         for (const auto& objektKlienta : objektyKlientow) {
             Klient klient;
 
-            // Parsowanie pól obiektu JSON
             std::map<std::string, std::string> pola;
             std::string objektStr = objektKlienta;
 
-            // Usuwamy początkowe "{" i końcowe "}"
+
             if (objektStr.front() == '{') objektStr = objektStr.substr(1);
             if (objektStr.back() == '}') objektStr = objektStr.substr(0, objektStr.size() - 1);
 
-            // Dzielimy obiekt na pola
             std::vector<std::string> paryPol = podziel(objektStr, ',');
 
             for (const auto& para : paryPol) {
@@ -313,11 +296,9 @@ std::vector<Klient> ImportDanych::importujKlientowZJSON(const std::string& sciez
                     std::string klucz = para.substr(0, pozycjaDwukropka);
                     std::string wartosc = para.substr(pozycjaDwukropka + 1);
 
-                    // Usuwamy cudzysłowy z klucza
                     if (klucz.front() == '"') klucz = klucz.substr(1);
                     if (klucz.back() == '"') klucz = klucz.substr(0, klucz.size() - 1);
 
-                    // Usuwamy cudzysłowy z wartości
                     if (wartosc.front() == '"') wartosc = wartosc.substr(1);
                     if (wartosc.back() == '"') wartosc = wartosc.substr(0, wartosc.size() - 1);
 
@@ -325,7 +306,6 @@ std::vector<Klient> ImportDanych::importujKlientowZJSON(const std::string& sciez
                 }
             }
 
-            // Ustawiamy pola klienta
             if (pola.count("imie")) klient.ustawImie(pola["imie"]);
             if (pola.count("nazwisko")) klient.ustawNazwisko(pola["nazwisko"]);
             if (pola.count("email")) klient.ustawEmail(pola["email"]);
@@ -344,23 +324,16 @@ std::vector<Klient> ImportDanych::importujKlientowZJSON(const std::string& sciez
     return klienci;
 }
 
-// Analogiczne implementacje dla karnetów i zajęć
 std::vector<Karnet> ImportDanych::importujKarnetyZJSON(const std::string& sciezkaPliku) {
-    // Podobnie jak w przypadku klientów, ta implementacja jest uproszczona
-    // W rzeczywistym projekcie warto użyć biblioteki JSON
 
     std::vector<Karnet> karnety;
-    // Implementacja podobna do importujKlientowZJSON, dostosowana do modelu Karnet
 
     return karnety;
 }
 
 std::vector<Zajecia> ImportDanych::importujZajeciaZJSON(const std::string& sciezkaPliku) {
-    // Podobnie jak w przypadku klientów, ta implementacja jest uproszczona
-    // W rzeczywistym projekcie warto użyć biblioteki JSON
 
     std::vector<Zajecia> zajecia;
-    // Implementacja podobna do importujKlientowZJSON, dostosowana do modelu Zajecia
 
     return zajecia;
 }

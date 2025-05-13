@@ -1,4 +1,3 @@
-// services/uslugi_raportow.cpp
 #include "uslugi_raportow.h"
 #include <algorithm>
 
@@ -10,7 +9,6 @@ std::vector<RaportAktywnosciKlienta> UslugiRaportow::generujRaportAktywnosciKlie
 
     std::vector<RaportAktywnosciKlienta> wyniki;
 
-    // Tworzymy zapytanie SQL pobieraj¹ce dane o aktywnoœci klientów
     std::string zapytanie =
         "SELECT c.id, c.first_name || ' ' || c.last_name AS 'customer_name', "
         "COUNT(r.id) AS 'total_classes', "
@@ -46,7 +44,6 @@ std::vector<RaportPopularnosciZajec> UslugiRaportow::generujRaportPopularnosciZa
 
     std::vector<RaportPopularnosciZajec> wyniki;
 
-    // Tworzymy zapytanie SQL pobieraj¹ce dane o popularnoœci zajêæ
     std::string zapytanie =
         "SELECT gc.id, gc.name, gc.trainer, "
         "COUNT(r.id) AS 'total_reservations', "
@@ -77,7 +74,6 @@ RaportFinansowy UslugiRaportow::generujRaportFinansowy(
 
     RaportFinansowy raport;
 
-    // Tworzymy zapytanie SQL pobieraj¹ce dane finansowe
     std::string zapytanieSuma =
         "SELECT SUM(price) AS 'total_revenue', COUNT(*) AS 'total_memberships' "
         "FROM memberships "
@@ -90,7 +86,6 @@ RaportFinansowy UslugiRaportow::generujRaportFinansowy(
         raport.lacznaLiczbaKarnetow = std::stoi(daneSuma[1]);
     }
 
-    // Zapytanie dla podzia³u na studenckie i standardowe
     std::string zapytanieTypy =
         "SELECT "
         "SUM(CASE WHEN type LIKE 'student_%' THEN price ELSE 0 END) AS 'student_revenue', "
@@ -105,7 +100,6 @@ RaportFinansowy UslugiRaportow::generujRaportFinansowy(
         raport.przychodStandardowy = std::stod(daneTypy[1]);
     }
 
-    // Zapytanie dla podzia³u przychodów wed³ug typów karnetów
     std::string zapytanieWgTypu =
         "SELECT type, SUM(price) AS 'revenue', COUNT(*) AS 'count' "
         "FROM memberships "

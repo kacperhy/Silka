@@ -1,4 +1,3 @@
-// utils/eksport_danych.cpp
 #include "eksport_danych.h"
 #include <fstream>
 #include <sstream>
@@ -9,19 +8,16 @@ EksportDanych::EksportDanych(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugi
 }
 
 std::string EksportDanych::escapujCSV(const std::string& str) {
-    // Jeśli string zawiera przecinek, cudzysłów lub znak nowej linii, zawijamy go w cudzysłowy
     if (str.find(',') != std::string::npos || str.find('"') != std::string::npos || 
         str.find('\n') != std::string::npos || str.find('\r') != std::string::npos) {
         
         std::string escaped = str;
-        // Zamieniamy wszystkie cudzysłowy na podwójne cudzysłowy
         size_t pos = 0;
         while ((pos = escaped.find('"', pos)) != std::string::npos) {
             escaped.replace(pos, 1, "\"\"");
             pos += 2;
         }
         
-        // Zawijamy całość w cudzysłowy
         return "\"" + escaped + "\"";
     }
     
@@ -34,10 +30,8 @@ bool EksportDanych::eksportujKlientowDoCSV(const std::string& sciezkaPliku) {
         throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
-    // Nagłówek CSV
     plik << "id,imie,nazwisko,email,telefon,data_urodzenia,data_rejestracji,uwagi\n";
     
-    // Dane
     auto klienci = uslugiKlienta.pobierzWszystkichKlientow();
     for (const auto& klient : klienci) {
         plik << klient.pobierzId() << ","
@@ -60,10 +54,8 @@ bool EksportDanych::eksportujKarnetyDoCSV(const std::string& sciezkaPliku) {
         throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
-    // Nagłówek CSV
     plik << "id,id_klienta,typ,data_rozpoczecia,data_zakonczenia,cena,czy_aktywny\n";
     
-    // Dane
     auto karnety = uslugiKarnetu.pobierzWszystkieKarnety();
     for (const auto& karnet : karnety) {
         plik << karnet.pobierzId() << ","
@@ -85,10 +77,8 @@ bool EksportDanych::eksportujZajeciaDoCSV(const std::string& sciezkaPliku) {
         throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
-    // Nagłówek CSV
     plik << "id,nazwa,trener,maks_uczestnikow,data,czas,czas_trwania,opis\n";
     
-    // Dane
     auto zajecia = uslugiZajec.pobierzWszystkieZajecia();
     for (const auto& zajecie : zajecia) {
         plik << zajecie.pobierzId() << ","
@@ -111,10 +101,8 @@ bool EksportDanych::eksportujRezerwacjeDoCSV(const std::string& sciezkaPliku) {
         throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
-    // Nagłówek CSV
     plik << "id,id_klienta,id_zajec,data_rezerwacji,status\n";
     
-    // Dane
     auto rezerwacje = uslugiZajec.pobierzWszystkieRezerwacje();
     for (const auto& rezerwacja : rezerwacje) {
         plik << rezerwacja.pobierzId() << ","
@@ -271,7 +259,6 @@ bool EksportDanych::eksportujKarnetyDoJSON(const std::string& sciezkaPliku) {
     return true;
 }
 
-// utils/eksport_danych.cpp (kontynuacja)
 bool EksportDanych::eksportujZajeciaDoJSON(const std::string& sciezkaPliku) {
     std::ofstream plik(sciezkaPliku);
     if (!plik.is_open()) {

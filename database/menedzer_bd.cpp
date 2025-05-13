@@ -1,4 +1,3 @@
-// database/menedzer_bd.cpp
 #include "menedzer_bd.h"
 #include <iostream>
 
@@ -20,7 +19,6 @@ void MenedzerBD::otworz() {
     int rc = sqlite3_open(sciezkaPliku.c_str(), &polaczenie);
     sprawdzBlad(rc, "Otwieranie bazy danych");
 
-    // Automatycznie inicjalizuj bazê danych przy otwarciu
     inicjalizujBazeDanych();
 }
 
@@ -185,7 +183,6 @@ std::string MenedzerBD::pobierzWartoscZParametrami(const std::string& zapytanie,
 }
 
 void MenedzerBD::inicjalizujBazeDanych() {
-    // Tworzenie tabel w bazie danych (jeœli nie istniej¹)
     wykonajZapytanie(
         "CREATE TABLE IF NOT EXISTS clients ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"

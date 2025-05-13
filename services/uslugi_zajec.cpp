@@ -1,4 +1,3 @@
-// services/uslugi_zajec.cpp
 #include "uslugi_zajec.h"
 
 UslugiZajec::UslugiZajec(ZajeciaDAO& zajeciaDAO, UslugiKarnetu& uslugiKarnetu)
@@ -68,6 +67,5 @@ int UslugiZajec::pobierzDostepneMiejscaZajec(int idZajec) {
 }
 
 bool UslugiZajec::czyKlientUprawniony(int idKlienta, int idZajec) {
-    // U¿ywamy publicznej metody zamiast próbowaæ bezpoœrednio dostaæ siê do prywatnego pola karnetDAO
     return uslugiKarnetu.czyKlientMaAktywnyKarnet(idKlienta);
 }
