@@ -1,333 +1,116 @@
-// database/dao/client_dao.cpp
-#include "client_dao.h"
-#include <sqlite3.h>
-#include <iostream>
+// database/dao/klient_dao.cpp
+#include "klient_dao.h"
+#include <sstream>
 
-ClientDAO::ClientDAO(DBManager& dbManager) : dbManager(dbManager) {
+KlientDAO::KlientDAO(MenedzerBD& menedzerBD) : menedzerBD(menedzerBD) {
 }
 
-std::vector<Client> ClientDAO::getAllClients() {
-    std::vector<Client> clients;
+std::vector<Klient> KlientDAO::pobierzWszystkich() {
+    std::vector<Klient> klienci;
 
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, first_name, last_name, email, phone, birth_date, registration_date, notes FROM clients";
+    auto dane = menedzerBD.pobierzDane("SELECT * FROM clients ORDER BY last_name, first_name");
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+    for (const auto& wiersz : dane) {
+        klienci.push_back(utworzKlientaZWiersza(wiersz));
     }
 
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        clients.push_back(rowToClient(stmt));
-    }
-
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    return clients;
+    return klienci;
 }
 
-std::unique_ptr<Client> ClientDAO::getClientById(int id) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, first_name, last_name, email, phone, birth_date, registration_date, notes FROM clients WHERE id = ?";
+std::unique_ptr<Klient> KlientDAO::pobierzPoId(int id) {
+    std::stringstream zapytanie;
+    zapytanie << "SELECT * FROM clients WHERE id = " << id;
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
+    auto dane = menedzerBD.pobierzDane(zapytanie.str());
 
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    sqlite3_bind_int(stmt, 1, id);
-
-    rc = sqlite3_step(stmt);
-
-    if (rc == SQLITE_ROW) {
-        auto client = std::make_unique<Client>(rowToClient(stmt));
-        sqlite3_finalize(stmt);
-        return client;
-    }
-    else {
-        sqlite3_finalize(stmt);
+    if (dane.empty()) {
         return nullptr;
     }
+
+    return std::make_unique<Klient>(utworzKlientaZWiersza(dane[0]));
 }
 
-int ClientDAO::addClient(const Client& client) {
+int KlientDAO::dodaj(const Klient& klient) {
+    std::stringstream zapytanie;
+    zapytanie << "INSERT INTO clients (first_name, last_name, email, phone, birth_date, registration_date, notes) VALUES ("
+        << "'" << klient.pobierzImie() << "', "
+        << "'" << klient.pobierzNazwisko() << "', "
+        << "'" << klient.pobierzEmail() << "', "
+        << "'" << klient.pobierzTelefon() << "', "
+        << "'" << klient.pobierzDateUrodzenia() << "', "
+        << "'" << klient.pobierzDateRejestracji() << "', "
+        << "'" << klient.pobierzUwagi() << "')";
+
+    return menedzerBD.wykonajZapytanieZwracajaceId(zapytanie.str());
+}
+
+bool KlientDAO::aktualizuj(const Klient& klient) {
+    std::stringstream zapytanie;
+    zapytanie << "UPDATE clients SET "
+        << "first_name = '" << klient.pobierzImie() << "', "
+        << "last_name = '" << klient.pobierzNazwisko() << "', "
+        << "email = '" << klient.pobierzEmail() << "', "
+        << "phone = '" << klient.pobierzTelefon() << "', "
+        << "birth_date = '" << klient.pobierzDateUrodzenia() << "', "
+        << "registration_date = '" << klient.pobierzDateRejestracji() << "', "
+        << "notes = '" << klient.pobierzUwagi() << "' "
+        << "WHERE id = " << klient.pobierzId();
+
     try {
-        // Debugowanie danych klienta
-        std::cout << "\n[DEBUG ClientDAO] Próba dodania klienta do bazy:\n";
-        std::cout << "[DEBUG ClientDAO] Imiê: [" << client.getFirstName() << "]\n";
-        std::cout << "[DEBUG ClientDAO] Nazwisko: [" << client.getLastName() << "]\n";
-        std::cout << "[DEBUG ClientDAO] Email: [" << client.getEmail() << "]\n";
-        std::cout << "[DEBUG ClientDAO] Telefon: [" << client.getPhone() << "]\n";
-        std::cout << "[DEBUG ClientDAO] Data urodzenia: [" << client.getBirthDate() << "]\n";
-        std::cout << "[DEBUG ClientDAO] Data rejestracji: [" << client.getRegistrationDate() << "]\n";
-        std::cout << "[DEBUG ClientDAO] Uwagi: [" << client.getNotes() << "]\n";
-
-        // ZnajdŸ najwy¿sze ID
-        sqlite3* db = dbManager.getConnection();
-        const char* maxIdQuery = "SELECT MAX(id) FROM clients";
-
-        sqlite3_stmt* stmt;
-        int rc = sqlite3_prepare_v2(db, maxIdQuery, -1, &stmt, nullptr);
-
-        if (rc != SQLITE_OK) {
-            std::string error = "B³¹d przygotowania zapytania MAX ID: " + std::string(sqlite3_errmsg(db));
-            std::cout << "[DEBUG ClientDAO] " << error << std::endl;
-            throw DatabaseException(error);
-        }
-
-        int nextId = 1;
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-            int maxId = sqlite3_column_int(stmt, 0);
-            nextId = maxId + 1;
-            std::cout << "[DEBUG ClientDAO] Znaleziono max ID: " << maxId << ", nowe ID: " << nextId << std::endl;
-        }
-        else {
-            std::cout << "[DEBUG ClientDAO] Brak rekordów, u¿ywam ID=1" << std::endl;
-        }
-
-        sqlite3_finalize(stmt);
-
-        // Konstruowanie zapytania z jawnym wypisywaniem
-        std::string debugQuery = "INSERT INTO clients (id, first_name, last_name, email, phone, birth_date, registration_date, notes) "
-            "VALUES (" + std::to_string(nextId) +
-            ", '" + client.getFirstName() +
-            "', '" + client.getLastName() +
-            "', '" + client.getEmail() +
-            "', '" + client.getPhone() +
-            "', '" + client.getBirthDate() +
-            "', '" + client.getRegistrationDate() +
-            "', '" + client.getNotes() + "')";
-
-        std::cout << "[DEBUG ClientDAO] Zapytanie SQL: " << debugQuery << std::endl;
-
-        // W³aœciwe zapytanie parametryzowane
-        const char* insertQuery = "INSERT INTO clients (id, first_name, last_name, email, phone, birth_date, registration_date, notes) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-
-        rc = sqlite3_prepare_v2(db, insertQuery, -1, &stmt, nullptr);
-
-        if (rc != SQLITE_OK) {
-            std::string error = "B³¹d przygotowania zapytania INSERT: " + std::string(sqlite3_errmsg(db));
-            std::cout << "[DEBUG ClientDAO] " << error << std::endl;
-            throw DatabaseException(error);
-        }
-
-        // Bindowanie parametrów z debugowaniem
-        rc = sqlite3_bind_int(stmt, 1, nextId);
-        if (rc != SQLITE_OK) std::cout << "[DEBUG ClientDAO] B³¹d bind id: " << sqlite3_errmsg(db) << std::endl;
-
-        rc = sqlite3_bind_text(stmt, 2, client.getFirstName().c_str(), -1, SQLITE_TRANSIENT);
-        if (rc != SQLITE_OK) std::cout << "[DEBUG ClientDAO] B³¹d bind firstName: " << sqlite3_errmsg(db) << std::endl;
-
-        rc = sqlite3_bind_text(stmt, 3, client.getLastName().c_str(), -1, SQLITE_TRANSIENT);
-        if (rc != SQLITE_OK) std::cout << "[DEBUG ClientDAO] B³¹d bind lastName: " << sqlite3_errmsg(db) << std::endl;
-
-        rc = sqlite3_bind_text(stmt, 4, client.getEmail().c_str(), -1, SQLITE_TRANSIENT);
-        if (rc != SQLITE_OK) std::cout << "[DEBUG ClientDAO] B³¹d bind email: " << sqlite3_errmsg(db) << std::endl;
-
-        rc = sqlite3_bind_text(stmt, 5, client.getPhone().c_str(), -1, SQLITE_TRANSIENT);
-        if (rc != SQLITE_OK) std::cout << "[DEBUG ClientDAO] B³¹d bind phone: " << sqlite3_errmsg(db) << std::endl;
-
-        rc = sqlite3_bind_text(stmt, 6, client.getBirthDate().c_str(), -1, SQLITE_TRANSIENT);
-        if (rc != SQLITE_OK) std::cout << "[DEBUG ClientDAO] B³¹d bind birthDate: " << sqlite3_errmsg(db) << std::endl;
-
-        rc = sqlite3_bind_text(stmt, 7, client.getRegistrationDate().c_str(), -1, SQLITE_TRANSIENT);
-        if (rc != SQLITE_OK) std::cout << "[DEBUG ClientDAO] B³¹d bind registrationDate: " << sqlite3_errmsg(db) << std::endl;
-
-        rc = sqlite3_bind_text(stmt, 8, client.getNotes().c_str(), -1, SQLITE_TRANSIENT);
-        if (rc != SQLITE_OK) std::cout << "[DEBUG ClientDAO] B³¹d bind notes: " << sqlite3_errmsg(db) << std::endl;
-
-        // Wykonanie zapytania
-        rc = sqlite3_step(stmt);
-        sqlite3_finalize(stmt);
-
-        if (rc != SQLITE_DONE) {
-            std::string error = "B³¹d wykonania zapytania INSERT: " + std::string(sqlite3_errmsg(db));
-            std::cout << "[DEBUG ClientDAO] " << error << std::endl;
-            throw DatabaseException(error);
-        }
-
-        std::cout << "[DEBUG ClientDAO] Klient dodany pomyœlnie z ID: " << nextId << std::endl;
-        return nextId;
-    }
-    catch (const std::exception& e) {
-        std::string error = "B³¹d podczas dodawania klienta: " + std::string(e.what());
-        std::cout << "[DEBUG ClientDAO] " << error << std::endl;
-        throw DatabaseException(error);
-    }
-    catch (...) {
-        std::string error = "Nieznany b³¹d podczas dodawania klienta";
-        std::cout << "[DEBUG ClientDAO] " << error << std::endl;
-        throw DatabaseException(error);
-    }
-}
-
-bool ClientDAO::updateClient(const Client& client) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "UPDATE clients SET first_name = ?, last_name = ?, email = ?, "
-        "phone = ?, birth_date = ?, registration_date = ?, notes = ? "
-        "WHERE id = ?";
-
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    sqlite3_bind_text(stmt, 1, client.getFirstName().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, client.getFirstName().c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 3, client.getLastName().c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 4, client.getEmail().c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 5, client.getBirthDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 6, client.getRegistrationDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 7, client.getNotes().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 8, client.getId());
-
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-
-    return rc == SQLITE_DONE;
-}
-
-bool ClientDAO::deleteClient(int id) {
-    try {
-        sqlite3* db = dbManager.getConnection();
-
-        // Rozpocznij transakcjê
-        dbManager.beginTransaction();
-
-        // 1. Usuñ najpierw rezerwacje klienta
-        const char* deleteReservationsQuery = "DELETE FROM reservations WHERE client_id = ?";
-        sqlite3_stmt* stmt;
-        int rc = sqlite3_prepare_v2(db, deleteReservationsQuery, -1, &stmt, nullptr);
-
-        if (rc != SQLITE_OK) {
-            dbManager.rollback();
-            throw DatabaseException("B³¹d przygotowania zapytania usuwania rezerwacji: " + std::string(sqlite3_errmsg(db)));
-        }
-
-        sqlite3_bind_int(stmt, 1, id);
-        rc = sqlite3_step(stmt);
-        sqlite3_finalize(stmt);
-
-        if (rc != SQLITE_DONE) {
-            dbManager.rollback();
-            throw DatabaseException("B³¹d usuwania rezerwacji: " + std::string(sqlite3_errmsg(db)));
-        }
-
-        // 2. Usuñ karnety klienta
-        const char* deleteMembershipsQuery = "DELETE FROM memberships WHERE client_id = ?";
-        rc = sqlite3_prepare_v2(db, deleteMembershipsQuery, -1, &stmt, nullptr);
-
-        if (rc != SQLITE_OK) {
-            dbManager.rollback();
-            throw DatabaseException("B³¹d przygotowania zapytania usuwania karnetów: " + std::string(sqlite3_errmsg(db)));
-        }
-
-        sqlite3_bind_int(stmt, 1, id);
-        rc = sqlite3_step(stmt);
-        sqlite3_finalize(stmt);
-
-        if (rc != SQLITE_DONE) {
-            dbManager.rollback();
-            throw DatabaseException("B³¹d usuwania karnetów: " + std::string(sqlite3_errmsg(db)));
-        }
-
-        // 3. Teraz mo¿na usun¹æ klienta
-        const char* deleteClientQuery = "DELETE FROM clients WHERE id = ?";
-        rc = sqlite3_prepare_v2(db, deleteClientQuery, -1, &stmt, nullptr);
-
-        if (rc != SQLITE_OK) {
-            dbManager.rollback();
-            throw DatabaseException("B³¹d przygotowania zapytania usuwania klienta: " + std::string(sqlite3_errmsg(db)));
-        }
-
-        sqlite3_bind_int(stmt, 1, id);
-        rc = sqlite3_step(stmt);
-        sqlite3_finalize(stmt);
-
-        if (rc != SQLITE_DONE) {
-            dbManager.rollback();
-            throw DatabaseException("B³¹d usuwania klienta: " + std::string(sqlite3_errmsg(db)));
-        }
-
-        // ZatwierdŸ transakcjê
-        dbManager.commit();
+        menedzerBD.wykonajZapytanie(zapytanie.str());
         return true;
     }
-    catch (const std::exception& e) {
-        std::cerr << "B³¹d podczas usuwania klienta: " << e.what() << std::endl;
-        try {
-            dbManager.rollback();
-        }
-        catch (...) {
-            // Ignoruj b³êdy podczas wycofywania transakcji
-        }
+    catch (const WyjatekBazyDanych&) {
         return false;
     }
 }
 
-std::vector<Client> ClientDAO::searchClients(const std::string& keyword) {
-    std::vector<Client> clients;
+bool KlientDAO::usun(int id) {
+    std::stringstream zapytanie;
+    zapytanie << "DELETE FROM clients WHERE id = " << id;
 
-    sqlite3* db = dbManager.getConnection();
-    std::string query = "SELECT id, first_name, last_name, email, phone, birth_date, registration_date, notes "
-        "FROM clients WHERE first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR phone LIKE ?";
-
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+    try {
+        menedzerBD.wykonajZapytanie(zapytanie.str());
+        return true;
     }
-
-    std::string pattern = "%" + keyword + "%";
-    sqlite3_bind_text(stmt, 1, pattern.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, pattern.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 3, pattern.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 4, pattern.c_str(), -1, SQLITE_STATIC);
-
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        clients.push_back(rowToClient(stmt));
+    catch (const WyjatekBazyDanych&) {
+        return false;
     }
-
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    return clients;
 }
 
-Client ClientDAO::rowToClient(sqlite3_stmt* stmt) {
-    int id = sqlite3_column_int(stmt, 0);
+std::vector<Klient> KlientDAO::wyszukaj(const std::string& klucz) {
+    std::vector<Klient> klienci;
 
-    const char* firstName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-    const char* lastName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-    const char* email = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-    const char* phone = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
-    const char* birthDate = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
-    const char* registrationDate = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
-    const char* notes = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
+    std::stringstream zapytanie;
+    zapytanie << "SELECT * FROM clients WHERE "
+        << "first_name LIKE '%" << klucz << "%' OR "
+        << "last_name LIKE '%" << klucz << "%' OR "
+        << "email LIKE '%" << klucz << "%' OR "
+        << "phone LIKE '%" << klucz << "%' "
+        << "ORDER BY last_name, first_name";
 
-    return Client(
-        id,
-        firstName ? std::string(firstName) : "",
-        lastName ? std::string(lastName) : "",
-        email ? std::string(email) : "",
-        phone ? std::string(phone) : "",
-        birthDate ? std::string(birthDate) : "",
-        registrationDate ? std::string(registrationDate) : "",
-        notes ? std::string(notes) : ""
-    );
+    auto dane = menedzerBD.pobierzDane(zapytanie.str());
+
+    for (const auto& wiersz : dane) {
+        klienci.push_back(utworzKlientaZWiersza(wiersz));
+    }
+
+    return klienci;
+}
+
+Klient KlientDAO::utworzKlientaZWiersza(const WierszBD& wiersz) {
+    if (wiersz.size() < 8) {
+        throw WyjatekBazyDanych("Nieprawid³owa liczba kolumn dla klienta");
+    }
+
+    int id = std::stoi(wiersz[0]);
+    std::string imie = wiersz[1];
+    std::string nazwisko = wiersz[2];
+    std::string email = wiersz[3];
+    std::string telefon = wiersz[4];
+    std::string dataUrodzenia = wiersz[5];
+    std::string dataRejestracji = wiersz[6];
+    std::string uwagi = wiersz[7];
+
+    return Klient(id, imie, nazwisko, email, telefon, dataUrodzenia, dataRejestracji, uwagi);
 }

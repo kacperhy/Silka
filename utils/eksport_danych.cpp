@@ -1,14 +1,14 @@
-// utils/data_export.cpp
-#include "data_export.h"
+// utils/eksport_danych.cpp
+#include "eksport_danych.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 
-DataExport::DataExport(ClientService& clientService, MembershipService& membershipService, ClassService& classService)
-    : clientService(clientService), membershipService(membershipService), classService(classService) {
+EksportDanych::EksportDanych(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKarnetu, UslugiZajec& uslugiZajec)
+    : uslugiKlienta(uslugiKlienta), uslugiKarnetu(uslugiKarnetu), uslugiZajec(uslugiZajec) {
 }
 
-std::string DataExport::escapeCSV(const std::string& str) {
+std::string EksportDanych::escapujCSV(const std::string& str) {
     // Jeśli string zawiera przecinek, cudzysłów lub znak nowej linii, zawijamy go w cudzysłowy
     if (str.find(',') != std::string::npos || str.find('"') != std::string::npos || 
         str.find('\n') != std::string::npos || str.find('\r') != std::string::npos) {
@@ -28,107 +28,107 @@ std::string DataExport::escapeCSV(const std::string& str) {
     return str;
 }
 
-bool DataExport::exportClientsToCSV(const std::string& filePath) {
-    std::ofstream file(filePath);
-    if (!file.is_open()) {
-        throw ExportException("Nie można otworzyć pliku: " + filePath);
+bool EksportDanych::eksportujKlientowDoCSV(const std::string& sciezkaPliku) {
+    std::ofstream plik(sciezkaPliku);
+    if (!plik.is_open()) {
+        throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
     // Nagłówek CSV
-    file << "id,first_name,last_name,email,phone,birth_date,registration_date,notes\n";
+    plik << "id,imie,nazwisko,email,telefon,data_urodzenia,data_rejestracji,uwagi\n";
     
     // Dane
-    auto clients = clientService.getAllClients();
-    for (const auto& client : clients) {
-        file << client.getId() << ","
-             << escapeCSV(client.getFirstName()) << ","
-             << escapeCSV(client.getLastName()) << ","
-             << escapeCSV(client.getEmail()) << ","
-             << escapeCSV(client.getPhone()) << ","
-             << escapeCSV(client.getBirthDate()) << ","
-             << escapeCSV(client.getRegistrationDate()) << ","
-             << escapeCSV(client.getNotes()) << "\n";
+    auto klienci = uslugiKlienta.pobierzWszystkichKlientow();
+    for (const auto& klient : klienci) {
+        plik << klient.pobierzId() << ","
+             << escapujCSV(klient.pobierzImie()) << ","
+             << escapujCSV(klient.pobierzNazwisko()) << ","
+             << escapujCSV(klient.pobierzEmail()) << ","
+             << escapujCSV(klient.pobierzTelefon()) << ","
+             << escapujCSV(klient.pobierzDateUrodzenia()) << ","
+             << escapujCSV(klient.pobierzDateRejestracji()) << ","
+             << escapujCSV(klient.pobierzUwagi()) << "\n";
     }
     
-    file.close();
+    plik.close();
     return true;
 }
 
-bool DataExport::exportMembershipsToCSV(const std::string& filePath) {
-    std::ofstream file(filePath);
-    if (!file.is_open()) {
-        throw ExportException("Nie można otworzyć pliku: " + filePath);
+bool EksportDanych::eksportujKarnetyDoCSV(const std::string& sciezkaPliku) {
+    std::ofstream plik(sciezkaPliku);
+    if (!plik.is_open()) {
+        throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
     // Nagłówek CSV
-    file << "id,client_id,type,start_date,end_date,price,is_active\n";
+    plik << "id,id_klienta,typ,data_rozpoczecia,data_zakonczenia,cena,czy_aktywny\n";
     
     // Dane
-    auto memberships = membershipService.getAllMemberships();
-    for (const auto& membership : memberships) {
-        file << membership.getId() << ","
-             << membership.getClientId() << ","
-             << escapeCSV(membership.getType()) << ","
-             << escapeCSV(membership.getStartDate()) << ","
-             << escapeCSV(membership.getEndDate()) << ","
-             << membership.getPrice() << ","
-             << (membership.getIsActive() ? "1" : "0") << "\n";
+    auto karnety = uslugiKarnetu.pobierzWszystkieKarnety();
+    for (const auto& karnet : karnety) {
+        plik << karnet.pobierzId() << ","
+             << karnet.pobierzIdKlienta() << ","
+             << escapujCSV(karnet.pobierzTyp()) << ","
+             << escapujCSV(karnet.pobierzDateRozpoczecia()) << ","
+             << escapujCSV(karnet.pobierzDateZakonczenia()) << ","
+             << karnet.pobierzCene() << ","
+             << (karnet.pobierzCzyAktywny() ? "1" : "0") << "\n";
     }
     
-    file.close();
+    plik.close();
     return true;
 }
 
-bool DataExport::exportClassesToCSV(const std::string& filePath) {
-    std::ofstream file(filePath);
-    if (!file.is_open()) {
-        throw ExportException("Nie można otworzyć pliku: " + filePath);
+bool EksportDanych::eksportujZajeciaDoCSV(const std::string& sciezkaPliku) {
+    std::ofstream plik(sciezkaPliku);
+    if (!plik.is_open()) {
+        throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
     // Nagłówek CSV
-    file << "id,name,trainer,max_participants,date,time,duration,description\n";
+    plik << "id,nazwa,trener,maks_uczestnikow,data,czas,czas_trwania,opis\n";
     
     // Dane
-    auto classes = classService.getAllClasses();
-    for (const auto& gymClass : classes) {
-        file << gymClass.getId() << ","
-             << escapeCSV(gymClass.getName()) << ","
-             << escapeCSV(gymClass.getTrainer()) << ","
-             << gymClass.getMaxParticipants() << ","
-             << escapeCSV(gymClass.getDate()) << ","
-             << escapeCSV(gymClass.getTime()) << ","
-             << gymClass.getDuration() << ","
-             << escapeCSV(gymClass.getDescription()) << "\n";
+    auto zajecia = uslugiZajec.pobierzWszystkieZajecia();
+    for (const auto& zajecie : zajecia) {
+        plik << zajecie.pobierzId() << ","
+             << escapujCSV(zajecie.pobierzNazwe()) << ","
+             << escapujCSV(zajecie.pobierzTrenera()) << ","
+             << zajecie.pobierzMaksUczestnikow() << ","
+             << escapujCSV(zajecie.pobierzDate()) << ","
+             << escapujCSV(zajecie.pobierzCzas()) << ","
+             << zajecie.pobierzCzasTrwania() << ","
+             << escapujCSV(zajecie.pobierzOpis()) << "\n";
     }
     
-    file.close();
+    plik.close();
     return true;
 }
 
-bool DataExport::exportReservationsToCSV(const std::string& filePath) {
-    std::ofstream file(filePath);
-    if (!file.is_open()) {
-        throw ExportException("Nie można otworzyć pliku: " + filePath);
+bool EksportDanych::eksportujRezerwacjeDoCSV(const std::string& sciezkaPliku) {
+    std::ofstream plik(sciezkaPliku);
+    if (!plik.is_open()) {
+        throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
     // Nagłówek CSV
-    file << "id,client_id,class_id,reservation_date,status\n";
+    plik << "id,id_klienta,id_zajec,data_rezerwacji,status\n";
     
     // Dane
-    auto reservations = classService.getAllReservations();
-    for (const auto& reservation : reservations) {
-        file << reservation.getId() << ","
-             << reservation.getClientId() << ","
-             << reservation.getClassId() << ","
-             << escapeCSV(reservation.getReservationDate()) << ","
-             << escapeCSV(reservation.getStatus()) << "\n";
+    auto rezerwacje = uslugiZajec.pobierzWszystkieRezerwacje();
+    for (const auto& rezerwacja : rezerwacje) {
+        plik << rezerwacja.pobierzId() << ","
+             << rezerwacja.pobierzIdKlienta() << ","
+             << rezerwacja.pobierzIdZajec() << ","
+             << escapujCSV(rezerwacja.pobierzDateRezerwacji()) << ","
+             << escapujCSV(rezerwacja.pobierzStatus()) << "\n";
     }
     
-    file.close();
+    plik.close();
     return true;
 }
 
-std::string DataExport::escapeJSON(const std::string& str) {
+std::string EksportDanych::escapujJSON(const std::string& str) {
     std::string escaped;
     escaped.reserve(str.size());
     
@@ -155,171 +155,171 @@ std::string DataExport::escapeJSON(const std::string& str) {
     return escaped;
 }
 
-std::string DataExport::clientToJSON(const Client& client) {
+std::string EksportDanych::klientDoJSON(const Klient& klient) {
     std::stringstream ss;
     
     ss << "{";
-    ss << "\"id\":" << client.getId() << ",";
-    ss << "\"firstName\":\"" << escapeJSON(client.getFirstName()) << "\",";
-    ss << "\"lastName\":\"" << escapeJSON(client.getLastName()) << "\",";
-    ss << "\"email\":\"" << escapeJSON(client.getEmail()) << "\",";
-    ss << "\"phone\":\"" << escapeJSON(client.getPhone()) << "\",";
-    ss << "\"birthDate\":\"" << escapeJSON(client.getBirthDate()) << "\",";
-    ss << "\"registrationDate\":\"" << escapeJSON(client.getRegistrationDate()) << "\",";
-    ss << "\"notes\":\"" << escapeJSON(client.getNotes()) << "\"";
+    ss << "\"id\":" << klient.pobierzId() << ",";
+    ss << "\"imie\":\"" << escapujJSON(klient.pobierzImie()) << "\",";
+    ss << "\"nazwisko\":\"" << escapujJSON(klient.pobierzNazwisko()) << "\",";
+    ss << "\"email\":\"" << escapujJSON(klient.pobierzEmail()) << "\",";
+    ss << "\"telefon\":\"" << escapujJSON(klient.pobierzTelefon()) << "\",";
+    ss << "\"dataUrodzenia\":\"" << escapujJSON(klient.pobierzDateUrodzenia()) << "\",";
+    ss << "\"dataRejestracji\":\"" << escapujJSON(klient.pobierzDateRejestracji()) << "\",";
+    ss << "\"uwagi\":\"" << escapujJSON(klient.pobierzUwagi()) << "\"";
     ss << "}";
     
     return ss.str();
 }
 
-std::string DataExport::membershipToJSON(const Membership& membership) {
+std::string EksportDanych::karnetDoJSON(const Karnet& karnet) {
     std::stringstream ss;
     
     ss << "{";
-    ss << "\"id\":" << membership.getId() << ",";
-    ss << "\"clientId\":" << membership.getClientId() << ",";
-    ss << "\"type\":\"" << escapeJSON(membership.getType()) << "\",";
-    ss << "\"startDate\":\"" << escapeJSON(membership.getStartDate()) << "\",";
-    ss << "\"endDate\":\"" << escapeJSON(membership.getEndDate()) << "\",";
-    ss << "\"price\":" << membership.getPrice() << ",";
-    ss << "\"isActive\":" << (membership.getIsActive() ? "true" : "false");
+    ss << "\"id\":" << karnet.pobierzId() << ",";
+    ss << "\"idKlienta\":" << karnet.pobierzIdKlienta() << ",";
+    ss << "\"typ\":\"" << escapujJSON(karnet.pobierzTyp()) << "\",";
+    ss << "\"dataRozpoczecia\":\"" << escapujJSON(karnet.pobierzDateRozpoczecia()) << "\",";
+    ss << "\"dataZakonczenia\":\"" << escapujJSON(karnet.pobierzDateZakonczenia()) << "\",";
+    ss << "\"cena\":" << karnet.pobierzCene() << ",";
+    ss << "\"czyAktywny\":" << (karnet.pobierzCzyAktywny() ? "true" : "false");
     ss << "}";
     
     return ss.str();
 }
 
-std::string DataExport::gymClassToJSON(const GymClass& gymClass) {
+std::string EksportDanych::zajeciaDoJSON(const Zajecia& zajecia) {
     std::stringstream ss;
     
     ss << "{";
-    ss << "\"id\":" << gymClass.getId() << ",";
-    ss << "\"name\":\"" << escapeJSON(gymClass.getName()) << "\",";
-    ss << "\"trainer\":\"" << escapeJSON(gymClass.getTrainer()) << "\",";
-    ss << "\"maxParticipants\":" << gymClass.getMaxParticipants() << ",";
-    ss << "\"date\":\"" << escapeJSON(gymClass.getDate()) << "\",";
-    ss << "\"time\":\"" << escapeJSON(gymClass.getTime()) << "\",";
-    ss << "\"duration\":" << gymClass.getDuration() << ",";
-    ss << "\"description\":\"" << escapeJSON(gymClass.getDescription()) << "\"";
+    ss << "\"id\":" << zajecia.pobierzId() << ",";
+    ss << "\"nazwa\":\"" << escapujJSON(zajecia.pobierzNazwe()) << "\",";
+    ss << "\"trener\":\"" << escapujJSON(zajecia.pobierzTrenera()) << "\",";
+    ss << "\"maksUczestnikow\":" << zajecia.pobierzMaksUczestnikow() << ",";
+    ss << "\"data\":\"" << escapujJSON(zajecia.pobierzDate()) << "\",";
+    ss << "\"czas\":\"" << escapujJSON(zajecia.pobierzCzas()) << "\",";
+    ss << "\"czasTrwania\":" << zajecia.pobierzCzasTrwania() << ",";
+    ss << "\"opis\":\"" << escapujJSON(zajecia.pobierzOpis()) << "\"";
     ss << "}";
     
     return ss.str();
 }
 
-std::string DataExport::reservationToJSON(const Reservation& reservation) {
+std::string EksportDanych::rezerwacjaDoJSON(const Rezerwacja& rezerwacja) {
     std::stringstream ss;
     
     ss << "{";
-    ss << "\"id\":" << reservation.getId() << ",";
-    ss << "\"clientId\":" << reservation.getClientId() << ",";
-    ss << "\"classId\":" << reservation.getClassId() << ",";
-    ss << "\"reservationDate\":\"" << escapeJSON(reservation.getReservationDate()) << "\",";
-    ss << "\"status\":\"" << escapeJSON(reservation.getStatus()) << "\"";
+    ss << "\"id\":" << rezerwacja.pobierzId() << ",";
+    ss << "\"idKlienta\":" << rezerwacja.pobierzIdKlienta() << ",";
+    ss << "\"idZajec\":" << rezerwacja.pobierzIdZajec() << ",";
+    ss << "\"dataRezerwacji\":\"" << escapujJSON(rezerwacja.pobierzDateRezerwacji()) << "\",";
+    ss << "\"status\":\"" << escapujJSON(rezerwacja.pobierzStatus()) << "\"";
     ss << "}";
     
     return ss.str();
 }
 
-bool DataExport::exportClientsToJSON(const std::string& filePath) {
-    std::ofstream file(filePath);
-    if (!file.is_open()) {
-        throw ExportException("Nie można otworzyć pliku: " + filePath);
+bool EksportDanych::eksportujKlientowDoJSON(const std::string& sciezkaPliku) {
+    std::ofstream plik(sciezkaPliku);
+    if (!plik.is_open()) {
+        throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
-    auto clients = clientService.getAllClients();
+    auto klienci = uslugiKlienta.pobierzWszystkichKlientow();
     
-    file << "{\n";
-    file << "  \"clients\": [\n";
+    plik << "{\n";
+    plik << "  \"klienci\": [\n";
     
-    for (size_t i = 0; i < clients.size(); ++i) {
-        file << "    " << clientToJSON(clients[i]);
-        if (i < clients.size() - 1) {
-            file << ",";
+    for (size_t i = 0; i < klienci.size(); ++i) {
+        plik << "    " << klientDoJSON(klienci[i]);
+        if (i < klienci.size() - 1) {
+            plik << ",";
         }
-        file << "\n";
+        plik << "\n";
     }
     
-    file << "  ]\n";
-    file << "}\n";
+    plik << "  ]\n";
+    plik << "}\n";
     
-    file.close();
+    plik.close();
     return true;
 }
 
-bool DataExport::exportMembershipsToJSON(const std::string& filePath) {
-    std::ofstream file(filePath);
-    if (!file.is_open()) {
-        throw ExportException("Nie można otworzyć pliku: " + filePath);
+bool EksportDanych::eksportujKarnetyDoJSON(const std::string& sciezkaPliku) {
+    std::ofstream plik(sciezkaPliku);
+    if (!plik.is_open()) {
+        throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
-    auto memberships = membershipService.getAllMemberships();
+    auto karnety = uslugiKarnetu.pobierzWszystkieKarnety();
     
-    file << "{\n";
-    file << "  \"memberships\": [\n";
+    plik << "{\n";
+    plik << "  \"karnety\": [\n";
     
-    for (size_t i = 0; i < memberships.size(); ++i) {
-        file << "    " << membershipToJSON(memberships[i]);
-        if (i < memberships.size() - 1) {
-            file << ",";
+    for (size_t i = 0; i < karnety.size(); ++i) {
+        plik << "    " << karnetDoJSON(karnety[i]);
+        if (i < karnety.size() - 1) {
+            plik << ",";
         }
-        file << "\n";
+        plik << "\n";
     }
     
-    file << "  ]\n";
-    file << "}\n";
+    plik << "  ]\n";
+    plik << "}\n";
     
-    file.close();
+    plik.close();
     return true;
 }
 
-// utils/data_export.cpp (kontynuacja)
-bool DataExport::exportClassesToJSON(const std::string& filePath) {
-    std::ofstream file(filePath);
-    if (!file.is_open()) {
-        throw ExportException("Nie można otworzyć pliku: " + filePath);
+// utils/eksport_danych.cpp (kontynuacja)
+bool EksportDanych::eksportujZajeciaDoJSON(const std::string& sciezkaPliku) {
+    std::ofstream plik(sciezkaPliku);
+    if (!plik.is_open()) {
+        throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
-    auto classes = classService.getAllClasses();
+    auto zajecia = uslugiZajec.pobierzWszystkieZajecia();
     
-    file << "{\n";
-    file << "  \"classes\": [\n";
+    plik << "{\n";
+    plik << "  \"zajecia\": [\n";
     
-    for (size_t i = 0; i < classes.size(); ++i) {
-        file << "    " << gymClassToJSON(classes[i]);
-        if (i < classes.size() - 1) {
-            file << ",";
+    for (size_t i = 0; i < zajecia.size(); ++i) {
+        plik << "    " << zajeciaDoJSON(zajecia[i]);
+        if (i < zajecia.size() - 1) {
+            plik << ",";
         }
-        file << "\n";
+        plik << "\n";
     }
     
-    file << "  ]\n";
-    file << "}\n";
+    plik << "  ]\n";
+    plik << "}\n";
     
-    file.close();
+    plik.close();
     return true;
 }
 
-bool DataExport::exportReservationsToJSON(const std::string& filePath) {
-    std::ofstream file(filePath);
-    if (!file.is_open()) {
-        throw ExportException("Nie można otworzyć pliku: " + filePath);
+bool EksportDanych::eksportujRezerwacjeDoJSON(const std::string& sciezkaPliku) {
+    std::ofstream plik(sciezkaPliku);
+    if (!plik.is_open()) {
+        throw WyjatekEksportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
     
-    auto reservations = classService.getAllReservations();
+    auto rezerwacje = uslugiZajec.pobierzWszystkieRezerwacje();
     
-    file << "{\n";
-    file << "  \"reservations\": [\n";
+    plik << "{\n";
+    plik << "  \"rezerwacje\": [\n";
     
-    for (size_t i = 0; i < reservations.size(); ++i) {
-        file << "    " << reservationToJSON(reservations[i]);
-        if (i < reservations.size() - 1) {
-            file << ",";
+    for (size_t i = 0; i < rezerwacje.size(); ++i) {
+        plik << "    " << rezerwacjaDoJSON(rezerwacje[i]);
+        if (i < rezerwacje.size() - 1) {
+            plik << ",";
         }
-        file << "\n";
+        plik << "\n";
     }
     
-    file << "  ]\n";
-    file << "}\n";
+    plik << "  ]\n";
+    plik << "}\n";
     
-    file.close();
+    plik.close();
     return true;
 }

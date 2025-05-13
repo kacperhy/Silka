@@ -24,7 +24,7 @@ public:
     Karnet utworzKarnetMiesieczny(int idKlienta, bool czyStudent);
     Karnet utworzKarnetKwartalny(int idKlienta, bool czyStudent);
     Karnet utworzKarnetRoczny(int idKlienta, bool czyStudent);
-
+    bool czyKlientMaAktywnyKarnet(int idKlienta);
     // Metody pomocnicze
     double obliczCene(const std::string& typ, bool czyStudent);
     std::string pobierzTypKarnetu(const std::string& bazaTypu, bool czyStudent);

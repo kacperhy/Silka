@@ -1,92 +1,94 @@
-// models/membership.cpp
+// models/karnet.cpp
 #define _CRT_SECURE_NO_WARNINGS
-#include "membership.h"
+#include "karnet.h"
 #include <ctime>
-#include <chrono>
-#include <sstream>
-#include <iomanip>
+#include <algorithm>
+#include <stdexcept>
 
-Membership::Membership() : id(-1), clientId(-1), type("normal"), startDate(getCurrentDate()),
-endDate(addDaysToDate(getCurrentDate(), 30)), price(0.0), isActive(true) {
+Karnet::Karnet() : id(-1), idKlienta(-1), typ(""),
+dataRozpoczecia(pobierzAktualnaDate()), dataZakonczenia(""),
+cena(0.0), czyAktywny(true) {
 }
 
-Membership::Membership(int id, int clientId, const std::string& type,
-    const std::string& startDate, const std::string& endDate,
-    double price, bool isActive) :
-    id(id), clientId(clientId), type(type),
-    startDate(startDate.empty() ? getCurrentDate() : startDate),
-    endDate(endDate.empty() ? addDaysToDate(startDate.empty() ? getCurrentDate() : startDate, 30) : endDate),
-    price(price), isActive(isActive) {
+Karnet::Karnet(int id, int idKlienta, const std::string& typ,
+    const std::string& dataRozpoczecia, const std::string& dataZakonczenia,
+    double cena, bool czyAktywny) :
+    id(id), idKlienta(idKlienta), typ(typ),
+    dataRozpoczecia(dataRozpoczecia.empty() ? pobierzAktualnaDate() : dataRozpoczecia),
+    dataZakonczenia(dataZakonczenia), cena(cena), czyAktywny(czyAktywny) {
 }
 
-int Membership::getId() const {
+int Karnet::pobierzId() const {
     return id;
 }
 
-int Membership::getClientId() const {
-    return clientId;
+int Karnet::pobierzIdKlienta() const {
+    return idKlienta;
 }
 
-std::string Membership::getType() const {
-    return type;
+std::string Karnet::pobierzTyp() const {
+    return typ;
 }
 
-std::string Membership::getStartDate() const {
-    return startDate;
+std::string Karnet::pobierzDateRozpoczecia() const {
+    return dataRozpoczecia;
 }
 
-std::string Membership::getEndDate() const {
-    return endDate;
+std::string Karnet::pobierzDateZakonczenia() const {
+    return dataZakonczenia;
 }
 
-double Membership::getPrice() const {
-    return price;
+double Karnet::pobierzCene() const {
+    return cena;
 }
 
-bool Membership::getIsActive() const {
-    return isActive;
+bool Karnet::pobierzCzyAktywny() const {
+    return czyAktywny;
 }
 
-void Membership::setId(int id) {
+void Karnet::ustawId(int id) {
     this->id = id;
 }
 
-void Membership::setClientId(int clientId) {
-    this->clientId = clientId;
+void Karnet::ustawIdKlienta(int idKlienta) {
+    this->idKlienta = idKlienta;
 }
 
-void Membership::setType(const std::string& type) {
-    this->type = type;
+void Karnet::ustawTyp(const std::string& typ) {
+    this->typ = typ;
 }
 
-void Membership::setStartDate(const std::string& startDate) {
-    this->startDate = startDate;
+void Karnet::ustawDateRozpoczecia(const std::string& dataRozpoczecia) {
+    this->dataRozpoczecia = dataRozpoczecia;
 }
 
-void Membership::setEndDate(const std::string& endDate) {
-    this->endDate = endDate;
+void Karnet::ustawDateZakonczenia(const std::string& dataZakonczenia) {
+    this->dataZakonczenia = dataZakonczenia;
 }
 
-void Membership::setPrice(double price) {
-    this->price = price;
+void Karnet::ustawCene(double cena) {
+    this->cena = cena;
 }
 
-void Membership::setIsActive(bool isActive) {
-    this->isActive = isActive;
+void Karnet::ustawCzyAktywny(bool czyAktywny) {
+    this->czyAktywny = czyAktywny;
 }
 
-bool Membership::isValid() const {
-    return isActive && (daysBetween(getCurrentDate(), endDate) >= 0);
+bool Karnet::czyWazny() const {
+    if (!czyAktywny) return false;
+
+    std::string dzisiaj = pobierzAktualnaDate();
+    return dataRozpoczecia <= dzisiaj && dzisiaj <= dataZakonczenia;
 }
 
-int Membership::daysLeft() const {
-    if (!isActive) {
-        return 0;
-    }
-    return daysBetween(getCurrentDate(), endDate);
+int Karnet::ileDniPozostalo() const {
+    if (!czyWazny()) return 0;
+
+    std::string dzisiaj = pobierzAktualnaDate();
+    return dniPomiedzy(dzisiaj, dataZakonczenia);
 }
 
-std::string Membership::getCurrentDate() {
+std::string Karnet::pobierzAktualnaDate() {
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     std::ostringstream oss;
@@ -94,36 +96,34 @@ std::string Membership::getCurrentDate() {
     return oss.str();
 }
 
-std::tm Membership::stringToDate(const std::string& dateStr) {
-    std::tm tm = {};
-    std::istringstream ss(dateStr);
-    ss >> std::get_time(&tm, "%Y-%m-%d");
-    return tm;
-}
+std::string Karnet::dodajDniDoData(const std::string& data, int dni) {
+    std::tm tm = konwertujStringNaDate(data);
+    std::time_t t = std::mktime(&tm);
+    t += dni * 24 * 60 * 60;  // Dodaj dni w sekundach
+    tm = *std::localtime(&t);
 
-int Membership::daysBetween(const std::string& date1, const std::string& date2) {
-    std::tm tm1 = stringToDate(date1);
-    std::tm tm2 = stringToDate(date2);
-
-    std::time_t time1 = std::mktime(&tm1);
-    std::time_t time2 = std::mktime(&tm2);
-
-    // Ró¿nica w sekundach
-    double seconds = std::difftime(time2, time1);
-
-    // Konwersja na dni (1 dzieñ = 86400 sekund)
-    return static_cast<int>(seconds / 86400);
-}
-
-std::string Membership::addDaysToDate(const std::string& date, int days) {
-    std::tm tm = stringToDate(date);
-    std::time_t time = std::mktime(&tm);
-
-    // Dodaj dni (1 dzieñ = 86400 sekund)
-    time += days * 86400;
-
-    tm = *std::localtime(&time);
     std::ostringstream oss;
     oss << std::put_time(&tm, "%Y-%m-%d");
     return oss.str();
+}
+
+std::tm Karnet::konwertujStringNaDate(const std::string& tekstDaty) {
+    std::tm tm = {};
+    if (sscanf(tekstDaty.c_str(), "%d-%d-%d", &tm.tm_year, &tm.tm_mon, &tm.tm_mday) == 3) {
+        tm.tm_year -= 1900;  // Lata s¹ liczone od 1900
+        tm.tm_mon -= 1;      // Miesi¹ce s¹ liczone od 0 (0-11)
+        return tm;
+    }
+    throw std::runtime_error("Nieprawid³owy format daty: " + tekstDaty);
+}
+
+int Karnet::dniPomiedzy(const std::string& data1, const std::string& data2) {
+    std::tm tm1 = konwertujStringNaDate(data1);
+    std::tm tm2 = konwertujStringNaDate(data2);
+
+    std::time_t t1 = std::mktime(&tm1);
+    std::time_t t2 = std::mktime(&tm2);
+
+    // Obliczamy ró¿nicê w sekundach i konwertujemy na dni
+    return static_cast<int>((t2 - t1) / (24 * 60 * 60));
 }

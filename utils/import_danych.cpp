@@ -1,5 +1,5 @@
-// utils/data_import.cpp
-#include "data_import.h"
+// utils/import_danych.cpp
+#include "import_danych.h"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -12,366 +12,373 @@
 // Funkcje pomocnicze dla JSON
 namespace {
     // Prosta funkcja do usuwania białych znaków z JSON
-    std::string stripWhitespace(const std::string& input) {
-        std::string output;
-        output.reserve(input.size());
-        bool inString = false;
-        
-        for (char c : input) {
+    std::string usunBialeZnaki(const std::string& wejscie) {
+        std::string wyjscie;
+        wyjscie.reserve(wejscie.size());
+        bool wCudzyslowie = false;
+
+        for (char c : wejscie) {
             if (c == '"') {
-                inString = !inString;
-                output += c;
-            } else if (inString || !std::isspace(c)) {
-                output += c;
+                wCudzyslowie = !wCudzyslowie;
+                wyjscie += c;
+            }
+            else if (wCudzyslowie || !std::isspace(c)) {
+                wyjscie += c;
             }
         }
-        
-        return output;
+
+        return wyjscie;
     }
-    
+
     // Prosta funkcja do podziału stringa na wektory po separatorze
-    std::vector<std::string> split(const std::string& input, char delimiter) {
-        std::vector<std::string> result;
-        std::stringstream ss(input);
-        std::string item;
-        
-        while (std::getline(ss, item, delimiter)) {
-            result.push_back(item);
+    std::vector<std::string> podziel(const std::string& wejscie, char separator) {
+        std::vector<std::string> wynik;
+        std::stringstream ss(wejscie);
+        std::string element;
+
+        while (std::getline(ss, element, separator)) {
+            wynik.push_back(element);
         }
-        
-        return result;
+
+        return wynik;
     }
-    
+
     // Funkcja pomocnicza do parsowania wartości pól z cudzysłowami w CSV
-    std::string unquote(const std::string& s) {
+    std::string usunCudzyslow(const std::string& s) {
         if (s.size() >= 2 && s.front() == '"' && s.back() == '"') {
             return s.substr(1, s.size() - 2);
         }
         return s;
     }
-    
+
     // Funkcja pomocnicza do usuwania białych znaków z początku i końca stringa
-    std::string trim(const std::string& s) {
+    std::string przytnij(const std::string& s) {
         auto start = s.begin();
         while (start != s.end() && std::isspace(*start)) {
             start++;
         }
-        
-        auto end = s.end();
+
+        auto koniec = s.end();
         do {
-            end--;
-        } while (start != end && std::isspace(*end));
-        
-        return std::string(start, end + 1);
+            koniec--;
+        } while (start != koniec && std::isspace(*koniec));
+
+        return std::string(start, koniec + 1);
     }
 }
 
-DataImport::DataImport(ClientService& clientService, MembershipService& membershipService, ClassService& classService)
-    : clientService(clientService), membershipService(membershipService), classService(classService) {
+ImportDanych::ImportDanych(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKarnetu, UslugiZajec& uslugiZajec)
+    : uslugiKlienta(uslugiKlienta), uslugiKarnetu(uslugiKarnetu), uslugiZajec(uslugiZajec) {
 }
 
-std::vector<std::vector<std::string>> DataImport::parseCSV(const std::string& filePath, char delimiter) {
-    std::ifstream file(filePath);
-    if (!file.is_open()) {
-        throw ImportException("Nie można otworzyć pliku: " + filePath);
+std::vector<std::vector<std::string>> ImportDanych::analizujCSV(const std::string& sciezkaPliku, char separator) {
+    std::ifstream plik(sciezkaPliku);
+    if (!plik.is_open()) {
+        throw WyjatekImportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
-    
-    std::vector<std::vector<std::string>> data;
-    std::string line;
-    
+
+    std::vector<std::vector<std::string>> dane;
+    std::string linia;
+
     // Pomijamy nagłówek (pierwsza linia)
-    std::getline(file, line);
-    
-    while (std::getline(file, line)) {
-        std::vector<std::string> row;
-        std::string cell;
-        
-        bool inQuotes = false;
-        std::stringstream ss(line);
-        
+    std::getline(plik, linia);
+
+    while (std::getline(plik, linia)) {
+        std::vector<std::string> wiersz;
+        std::string komorka;
+
+        bool wCudzyslowie = false;
+        std::stringstream ss(linia);
+
         while (ss.good()) {
             char c = ss.get();
-            
+
             if (c == EOF) {
                 break;
-            } else if (c == '"') {
-                inQuotes = !inQuotes;
-            } else if (c == delimiter && !inQuotes) {
-                row.push_back(trim(cell));
-                cell.clear();
-            } else {
-                cell += c;
+            }
+            else if (c == '"') {
+                wCudzyslowie = !wCudzyslowie;
+            }
+            else if (c == separator && !wCudzyslowie) {
+                wiersz.push_back(przytnij(komorka));
+                komorka.clear();
+            }
+            else {
+                komorka += c;
             }
         }
-        
-        if (!cell.empty()) {
-            row.push_back(trim(cell));
+
+        if (!komorka.empty()) {
+            wiersz.push_back(przytnij(komorka));
         }
-        
-        if (!row.empty()) {
-            data.push_back(row);
+
+        if (!wiersz.empty()) {
+            dane.push_back(wiersz);
         }
     }
-    
-    file.close();
-    return data;
+
+    plik.close();
+    return dane;
 }
 
-Client DataImport::parseClientRow(const std::vector<std::string>& row) {
-    if (row.size() < 6) {
-        throw ImportException("Nieprawidłowa liczba kolumn dla klienta");
+Klient ImportDanych::analizujWierszKlienta(const std::vector<std::string>& wiersz) {
+    if (wiersz.size() < 6) {
+        throw WyjatekImportu("Nieprawidłowa liczba kolumn dla klienta");
     }
-    
-    Client client;
-    
-    // Zakładamy format: id, first_name, last_name, email, phone, birth_date, registration_date, notes
+
+    Klient klient;
+
+    // Zakładamy format: id, imie, nazwisko, email, telefon, data_urodzenia, data_rejestracji, uwagi
     // ID pomijamy, ponieważ zostanie nadane przez bazę danych
-    client.setFirstName(unquote(row[1]));
-    client.setLastName(unquote(row[2]));
-    client.setEmail(unquote(row[3]));
-    client.setPhone(unquote(row[4]));
-    client.setBirthDate(unquote(row[5]));
-    
-    if (row.size() > 6) {
-        client.setRegistrationDate(unquote(row[6]));
+    klient.ustawImie(usunCudzyslow(wiersz[1]));
+    klient.ustawNazwisko(usunCudzyslow(wiersz[2]));
+    klient.ustawEmail(usunCudzyslow(wiersz[3]));
+    klient.ustawTelefon(usunCudzyslow(wiersz[4]));
+    klient.ustawDateUrodzenia(usunCudzyslow(wiersz[5]));
+
+    if (wiersz.size() > 6) {
+        klient.ustawDateRejestracji(usunCudzyslow(wiersz[6]));
     }
-    
-    if (row.size() > 7) {
-        client.setNotes(unquote(row[7]));
+
+    if (wiersz.size() > 7) {
+        klient.ustawUwagi(usunCudzyslow(wiersz[7]));
     }
-    
-    return client;
+
+    return klient;
 }
 
-Membership DataImport::parseMembershipRow(const std::vector<std::string>& row) {
-    if (row.size() < 6) {
-        throw ImportException("Nieprawidłowa liczba kolumn dla karnetu");
+Karnet ImportDanych::analizujWierszKarnetu(const std::vector<std::string>& wiersz) {
+    if (wiersz.size() < 6) {
+        throw WyjatekImportu("Nieprawidłowa liczba kolumn dla karnetu");
     }
-    
-    Membership membership;
-    
-    // Zakładamy format: id, client_id, type, start_date, end_date, price, is_active
+
+    Karnet karnet;
+
+    // Zakładamy format: id, id_klienta, typ, data_rozpoczecia, data_zakonczenia, cena, czy_aktywny
     // ID pomijamy, ponieważ zostanie nadane przez bazę danych
-    membership.setClientId(std::stoi(unquote(row[1])));
-    membership.setType(unquote(row[2]));
-    membership.setStartDate(unquote(row[3]));
-    membership.setEndDate(unquote(row[4]));
-    membership.setPrice(std::stod(unquote(row[5])));
-    
-    if (row.size() > 6) {
-        membership.setIsActive(unquote(row[6]) == "1" || unquote(row[6]) == "true");
+    karnet.ustawIdKlienta(std::stoi(usunCudzyslow(wiersz[1])));
+    karnet.ustawTyp(usunCudzyslow(wiersz[2]));
+    karnet.ustawDateRozpoczecia(usunCudzyslow(wiersz[3]));
+    karnet.ustawDateZakonczenia(usunCudzyslow(wiersz[4]));
+    karnet.ustawCene(std::stod(usunCudzyslow(wiersz[5])));
+
+    if (wiersz.size() > 6) {
+        karnet.ustawCzyAktywny(usunCudzyslow(wiersz[6]) == "1" || usunCudzyslow(wiersz[6]) == "true");
     }
-    
-    return membership;
+
+    return karnet;
 }
 
-GymClass DataImport::parseClassRow(const std::vector<std::string>& row) {
-    if (row.size() < 7) {
-        throw ImportException("Nieprawidłowa liczba kolumn dla zajęć");
+Zajecia ImportDanych::analizujWierszZajec(const std::vector<std::string>& wiersz) {
+    if (wiersz.size() < 7) {
+        throw WyjatekImportu("Nieprawidłowa liczba kolumn dla zajęć");
     }
-    
-    GymClass gymClass;
-    
-    // Zakładamy format: id, name, trainer, max_participants, date, time, duration, description
+
+    Zajecia zajecia;
+
+    // Zakładamy format: id, nazwa, trener, maks_uczestnikow, data, czas, czas_trwania, opis
     // ID pomijamy, ponieważ zostanie nadane przez bazę danych
-    gymClass.setName(unquote(row[1]));
-    gymClass.setTrainer(unquote(row[2]));
-    gymClass.setMaxParticipants(std::stoi(unquote(row[3])));
-    gymClass.setDate(unquote(row[4]));
-    gymClass.setTime(unquote(row[5]));
-    gymClass.setDuration(std::stoi(unquote(row[6])));
-    
-    if (row.size() > 7) {
-        gymClass.setDescription(unquote(row[7]));
+    zajecia.ustawNazwe(usunCudzyslow(wiersz[1]));
+    zajecia.ustawTrenera(usunCudzyslow(wiersz[2]));
+    zajecia.ustawMaksUczestnikow(std::stoi(usunCudzyslow(wiersz[3])));
+    zajecia.ustawDate(usunCudzyslow(wiersz[4]));
+    zajecia.ustawCzas(usunCudzyslow(wiersz[5]));
+    zajecia.ustawCzasTrwania(std::stoi(usunCudzyslow(wiersz[6])));
+
+    if (wiersz.size() > 7) {
+        zajecia.ustawOpis(usunCudzyslow(wiersz[7]));
     }
-    
-    return gymClass;
+
+    return zajecia;
 }
 
-std::vector<Client> DataImport::importClientsFromCSV(const std::string& filePath) {
-    std::vector<Client> clients;
-    
+std::vector<Klient> ImportDanych::importujKlientowZCSV(const std::string& sciezkaPliku) {
+    std::vector<Klient> klienci;
+
     try {
-        auto data = parseCSV(filePath);
-        
-        for (const auto& row : data) {
-            clients.push_back(parseClientRow(row));
+        auto dane = analizujCSV(sciezkaPliku);
+
+        for (const auto& wiersz : dane) {
+            klienci.push_back(analizujWierszKlienta(wiersz));
         }
-    } catch (const std::exception& e) {
-        throw ImportException(std::string("Błąd podczas importu klientów z CSV: ") + e.what());
     }
-    
-    return clients;
+    catch (const std::exception& e) {
+        throw WyjatekImportu(std::string("Błąd podczas importu klientów z CSV: ") + e.what());
+    }
+
+    return klienci;
 }
 
-std::vector<Membership> DataImport::importMembershipsFromCSV(const std::string& filePath) {
-    std::vector<Membership> memberships;
-    
+std::vector<Karnet> ImportDanych::importujKarnetyZCSV(const std::string& sciezkaPliku) {
+    std::vector<Karnet> karnety;
+
     try {
-        auto data = parseCSV(filePath);
-        
-        for (const auto& row : data) {
-            memberships.push_back(parseMembershipRow(row));
+        auto dane = analizujCSV(sciezkaPliku);
+
+        for (const auto& wiersz : dane) {
+            karnety.push_back(analizujWierszKarnetu(wiersz));
         }
-    } catch (const std::exception& e) {
-        throw ImportException(std::string("Błąd podczas importu karnetów z CSV: ") + e.what());
     }
-    
-    return memberships;
+    catch (const std::exception& e) {
+        throw WyjatekImportu(std::string("Błąd podczas importu karnetów z CSV: ") + e.what());
+    }
+
+    return karnety;
 }
 
-std::vector<GymClass> DataImport::importClassesFromCSV(const std::string& filePath) {
-    std::vector<GymClass> classes;
-    
+std::vector<Zajecia> ImportDanych::importujZajeciaZCSV(const std::string& sciezkaPliku) {
+    std::vector<Zajecia> zajecia;
+
     try {
-        auto data = parseCSV(filePath);
-        
-        for (const auto& row : data) {
-            classes.push_back(parseClassRow(row));
+        auto dane = analizujCSV(sciezkaPliku);
+
+        for (const auto& wiersz : dane) {
+            zajecia.push_back(analizujWierszZajec(wiersz));
         }
-    } catch (const std::exception& e) {
-        throw ImportException(std::string("Błąd podczas importu zajęć z CSV: ") + e.what());
     }
-    
-    return classes;
+    catch (const std::exception& e) {
+        throw WyjatekImportu(std::string("Błąd podczas importu zajęć z CSV: ") + e.what());
+    }
+
+    return zajecia;
 }
 
 // UWAGA: To jest bardzo prosta implementacja parsowania JSON, która nie jest odporna na wszystkie przypadki.
 // W rzeczywistej aplikacji zalecane byłoby użycie biblioteki do obsługi JSON, np. nlohmann/json.
-std::string DataImport::readJSONFile(const std::string& filePath) {
-    std::ifstream file(filePath);
-    if (!file.is_open()) {
-        throw ImportException("Nie można otworzyć pliku: " + filePath);
+std::string ImportDanych::wczytajPlikJSON(const std::string& sciezkaPliku) {
+    std::ifstream plik(sciezkaPliku);
+    if (!plik.is_open()) {
+        throw WyjatekImportu("Nie można otworzyć pliku: " + sciezkaPliku);
     }
-    
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    file.close();
-    
-    return buffer.str();
+
+    std::stringstream bufor;
+    bufor << plik.rdbuf();
+    plik.close();
+
+    return bufor.str();
 }
 
-std::vector<Client> DataImport::importClientsFromJSON(const std::string& filePath) {
+std::vector<Klient> ImportDanych::importujKlientowZJSON(const std::string& sciezkaPliku) {
     // UWAGA: Ta implementacja jest bardzo uproszczona i nie obsługuje wszystkich przypadków.
     // W rzeczywistym projekcie warto użyć biblioteki JSON.
-    std::vector<Client> clients;
-    
+    std::vector<Klient> klienci;
+
     try {
-        std::string json = readJSONFile(filePath);
-        json = stripWhitespace(json);
-        
+        std::string json = wczytajPlikJSON(sciezkaPliku);
+        json = usunBialeZnaki(json);
+
         // Proste parsowanie tablicy JSON: znajdujemy "[" i "]" oraz dzielimy dane między nimi po "},"
         size_t start = json.find('[');
-        size_t end = json.rfind(']');
-        
-        if (start == std::string::npos || end == std::string::npos) {
-            throw ImportException("Nieprawidłowy format JSON");
+        size_t koniec = json.rfind(']');
+
+        if (start == std::string::npos || koniec == std::string::npos) {
+            throw WyjatekImportu("Nieprawidłowy format JSON");
         }
-        
-        std::string arrayContent = json.substr(start + 1, end - start - 1);
-        std::vector<std::string> clientObjects;
-        
+
+        std::string zawartoscTablicy = json.substr(start + 1, koniec - start - 1);
+        std::vector<std::string> objektyKlientow;
+
         size_t pos = 0;
         std::string delimiter = "},{";
         std::string token;
-        
-        while ((pos = arrayContent.find(delimiter)) != std::string::npos) {
-            token = arrayContent.substr(0, pos + 1); // Dodajemy "}" do tokena
-            clientObjects.push_back(token);
-            arrayContent.erase(0, pos + delimiter.length() - 1); // Pozostawiamy "{" w kolejnym tokenie
+
+        while ((pos = zawartoscTablicy.find(delimiter)) != std::string::npos) {
+            token = zawartoscTablicy.substr(0, pos + 1); // Dodajemy "}" do tokena
+            objektyKlientow.push_back(token);
+            zawartoscTablicy.erase(0, pos + delimiter.length() - 1); // Pozostawiamy "{" w kolejnym tokenie
         }
-        
+
         // Dodajemy ostatni obiekt
-        if (!arrayContent.empty()) {
-            clientObjects.push_back(arrayContent);
+        if (!zawartoscTablicy.empty()) {
+            objektyKlientow.push_back(zawartoscTablicy);
         }
-        
-        for (const auto& clientObj : clientObjects) {
-            Client client;
-            
+
+        for (const auto& objektKlienta : objektyKlientow) {
+            Klient klient;
+
             // Parsowanie pól obiektu JSON
-            std::map<std::string, std::string> fields;
-            std::string fieldDelimiter = ",\"";
-            std::string object = clientObj;
-            
+            std::map<std::string, std::string> pola;
+            std::string objektStr = objektKlienta;
+
             // Usuwamy początkowe "{" i końcowe "}"
-            if (object.front() == '{') object = object.substr(1);
-            if (object.back() == '}') object = object.substr(0, object.size() - 1);
-            
+            if (objektStr.front() == '{') objektStr = objektStr.substr(1);
+            if (objektStr.back() == '}') objektStr = objektStr.substr(0, objektStr.size() - 1);
+
             // Dzielimy obiekt na pola
-            std::vector<std::string> fieldPairs = split(object, ',');
-            
-            for (const auto& pair : fieldPairs) {
-                size_t colonPos = pair.find(':');
-                if (colonPos != std::string::npos) {
-                    std::string key = pair.substr(0, colonPos);
-                    std::string value = pair.substr(colonPos + 1);
-                    
+            std::vector<std::string> paryPol = podziel(objektStr, ',');
+
+            for (const auto& para : paryPol) {
+                size_t pozycjaDwukropka = para.find(':');
+                if (pozycjaDwukropka != std::string::npos) {
+                    std::string klucz = para.substr(0, pozycjaDwukropka);
+                    std::string wartosc = para.substr(pozycjaDwukropka + 1);
+
                     // Usuwamy cudzysłowy z klucza
-                    if (key.front() == '"') key = key.substr(1);
-                    if (key.back() == '"') key = key.substr(0, key.size() - 1);
-                    
+                    if (klucz.front() == '"') klucz = klucz.substr(1);
+                    if (klucz.back() == '"') klucz = klucz.substr(0, klucz.size() - 1);
+
                     // Usuwamy cudzysłowy z wartości
-                    if (value.front() == '"') value = value.substr(1);
-                    if (value.back() == '"') value = value.substr(0, value.size() - 1);
-                    
-                    fields[key] = value;
+                    if (wartosc.front() == '"') wartosc = wartosc.substr(1);
+                    if (wartosc.back() == '"') wartosc = wartosc.substr(0, wartosc.size() - 1);
+
+                    pola[klucz] = wartosc;
                 }
             }
-            
+
             // Ustawiamy pola klienta
-            if (fields.count("firstName")) client.setFirstName(fields["firstName"]);
-            if (fields.count("lastName")) client.setLastName(fields["lastName"]);
-            if (fields.count("email")) client.setEmail(fields["email"]);
-            if (fields.count("phone")) client.setPhone(fields["phone"]);
-            if (fields.count("birthDate")) client.setBirthDate(fields["birthDate"]);
-            if (fields.count("registrationDate")) client.setRegistrationDate(fields["registrationDate"]);
-            if (fields.count("notes")) client.setNotes(fields["notes"]);
-            
-            clients.push_back(client);
+            if (pola.count("imie")) klient.ustawImie(pola["imie"]);
+            if (pola.count("nazwisko")) klient.ustawNazwisko(pola["nazwisko"]);
+            if (pola.count("email")) klient.ustawEmail(pola["email"]);
+            if (pola.count("telefon")) klient.ustawTelefon(pola["telefon"]);
+            if (pola.count("dataUrodzenia")) klient.ustawDateUrodzenia(pola["dataUrodzenia"]);
+            if (pola.count("dataRejestracji")) klient.ustawDateRejestracji(pola["dataRejestracji"]);
+            if (pola.count("uwagi")) klient.ustawUwagi(pola["uwagi"]);
+
+            klienci.push_back(klient);
         }
-    } catch (const std::exception& e) {
-        throw ImportException(std::string("Błąd podczas importu klientów z JSON: ") + e.what());
     }
-    
-    return clients;
+    catch (const std::exception& e) {
+        throw WyjatekImportu(std::string("Błąd podczas importu klientów z JSON: ") + e.what());
+    }
+
+    return klienci;
 }
 
 // Analogiczne implementacje dla karnetów i zajęć
-std::vector<Membership> DataImport::importMembershipsFromJSON(const std::string& filePath) {
+std::vector<Karnet> ImportDanych::importujKarnetyZJSON(const std::string& sciezkaPliku) {
     // Podobnie jak w przypadku klientów, ta implementacja jest uproszczona
     // W rzeczywistym projekcie warto użyć biblioteki JSON
-    
-    std::vector<Membership> memberships;
-    // Implementacja podobna do importClientsFromJSON, dostosowana do modelu Membership
-    
-    return memberships;
+
+    std::vector<Karnet> karnety;
+    // Implementacja podobna do importujKlientowZJSON, dostosowana do modelu Karnet
+
+    return karnety;
 }
 
-std::vector<GymClass> DataImport::importClassesFromJSON(const std::string& filePath) {
+std::vector<Zajecia> ImportDanych::importujZajeciaZJSON(const std::string& sciezkaPliku) {
     // Podobnie jak w przypadku klientów, ta implementacja jest uproszczona
     // W rzeczywistym projekcie warto użyć biblioteki JSON
-    
-    std::vector<GymClass> classes;
-    // Implementacja podobna do importClientsFromJSON, dostosowana do modelu GymClass
-    
-    return classes;
+
+    std::vector<Zajecia> zajecia;
+    // Implementacja podobna do importujKlientowZJSON, dostosowana do modelu Zajecia
+
+    return zajecia;
 }
 
-void DataImport::saveImportedClients(const std::vector<Client>& clients) {
-    for (const auto& client : clients) {
-        clientService.addClient(client);
+void ImportDanych::zapiszZaimportowanychKlientow(const std::vector<Klient>& klienci) {
+    for (const auto& klient : klienci) {
+        uslugiKlienta.dodajKlienta(klient);
     }
 }
 
-void DataImport::saveImportedMemberships(const std::vector<Membership>& memberships) {
-    for (const auto& membership : memberships) {
-        membershipService.addMembership(membership);
+void ImportDanych::zapiszZaimportowaneKarnety(const std::vector<Karnet>& karnety) {
+    for (const auto& karnet : karnety) {
+        uslugiKarnetu.dodajKarnet(karnet);
     }
 }
 
-void DataImport::saveImportedClasses(const std::vector<GymClass>& classes) {
-    for (const auto& gymClass : classes) {
-        classService.addClass(gymClass);
+void ImportDanych::zapiszZaimportowaneZajecia(const std::vector<Zajecia>& zajecia) {
+    for (const auto& zajecie : zajecia) {
+        uslugiZajec.dodajZajecia(zajecie);
     }
 }

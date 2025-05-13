@@ -1,59 +1,29 @@
-// services/client_service.cpp
-#include "client_service.h"
-#include <stdexcept>
-#include <iostream>
-ClientService::ClientService(ClientDAO& clientDao) : clientDao(clientDao) {
+// services/uslugi_klienta.cpp
+#include "uslugi_klienta.h"
+
+UslugiKlienta::UslugiKlienta(KlientDAO& klientDAO) : klientDAO(klientDAO) {
 }
 
-std::vector<Client> ClientService::getAllClients() {
-    return clientDao.getAllClients();
+std::vector<Klient> UslugiKlienta::pobierzWszystkichKlientow() {
+    return klientDAO.pobierzWszystkich();
 }
 
-std::unique_ptr<Client> ClientService::getClientById(int id) {
-    return clientDao.getClientById(id);
+std::unique_ptr<Klient> UslugiKlienta::pobierzKlientaPoId(int id) {
+    return klientDAO.pobierzPoId(id);
 }
 
-int ClientService::addClient(const Client& client) {
-    // Podstawowa walidacja
-    if (client.getFirstName().empty()) {
-        throw std::invalid_argument("Imiê nie mo¿e byæ puste");
-    }
-
-    if (client.getLastName().empty()) {
-        throw std::invalid_argument("Nazwisko nie mo¿e byæ puste");
-    }
-
-    // SprawdŸ, czy dane s¹ niepuste przed dodaniem
-    std::cout << "ClientService - Dane do dodania:\n";
-    std::cout << "Imiê: [" << client.getFirstName() << "]\n";
-    std::cout << "Nazwisko: [" << client.getLastName() << "]\n";
-    std::cout << "Email: [" << client.getEmail() << "]\n";
-
-    return clientDao.addClient(client);
+int UslugiKlienta::dodajKlienta(const Klient& klient) {
+    return klientDAO.dodaj(klient);
 }
 
-bool ClientService::updateClient(const Client& client) {
-    // Walidacja podobna jak przy dodawaniu
-    if (client.getFirstName().empty() || client.getLastName().empty()) {
-        throw std::invalid_argument("Imiê i nazwisko nie mog¹ byæ puste");
-    }
-
-    if (!client.getEmail().empty() && client.getEmail().find('@') == std::string::npos) {
-        throw std::invalid_argument("Nieprawid³owy format adresu email");
-    }
-
-    return clientDao.updateClient(client);
+bool UslugiKlienta::aktualizujKlienta(const Klient& klient) {
+    return klientDAO.aktualizuj(klient);
 }
 
-bool ClientService::removeClient(int id) {
-    // Przed usuniêciem klienta mo¿na sprawdziæ, czy nie ma aktywnych karnetów lub rezerwacji
-    // Tutaj uproszczona wersja
-    return clientDao.deleteClient(id);
+bool UslugiKlienta::usunKlienta(int id) {
+    return klientDAO.usun(id);
 }
 
-std::vector<Client> ClientService::searchClients(const std::string& keyword) {
-    if (keyword.empty()) {
-        return getAllClients();
-    }
-    return clientDao.searchClients(keyword);
+std::vector<Klient> UslugiKlienta::wyszukajKlientow(const std::string& klucz) {
+    return klientDAO.wyszukaj(klucz);
 }

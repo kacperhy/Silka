@@ -1,429 +1,205 @@
-// database/dao/class_dao.cpp
-#include "class_dao.h"
-#include <sqlite3.h>
-#include <iostream>
+// database/dao/zajecia_dao.cpp
+#include "zajecia_dao.h"
+#include <sstream>
 
-ClassDAO::ClassDAO(DBManager& dbManager) : dbManager(dbManager) {
+ZajeciaDAO::ZajeciaDAO(MenedzerBD& menedzerBD) : menedzerBD(menedzerBD) {
 }
 
-std::vector<GymClass> ClassDAO::getAllClasses() {
-    std::vector<GymClass> classes;
+std::vector<Zajecia> ZajeciaDAO::pobierzWszystkieZajecia() {
+    std::vector<Zajecia> zajecia;
 
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, name, trainer, max_participants, date, time, duration, description FROM classes";
+    auto dane = menedzerBD.pobierzDane("SELECT * FROM gym_classes ORDER BY date, time");
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+    for (const auto& wiersz : dane) {
+        zajecia.push_back(utworzZajeciaZWiersza(wiersz));
     }
 
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        classes.push_back(rowToGymClass(stmt));
-    }
-
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    return classes;
+    return zajecia;
 }
 
-std::vector<GymClass> ClassDAO::getUpcomingClasses() {
-    std::vector<GymClass> classes;
+std::unique_ptr<Zajecia> ZajeciaDAO::pobierzZajeciaPoId(int id) {
+    std::stringstream zapytanie;
+    zapytanie << "SELECT * FROM gym_classes WHERE id = " << id;
 
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, name, trainer, max_participants, date, time, duration, description "
-        "FROM classes WHERE date(date) >= date('now') "
-        "ORDER BY date ASC, time ASC";
+    auto dane = menedzerBD.pobierzDane(zapytanie.str());
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        classes.push_back(rowToGymClass(stmt));
-    }
-
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    return classes;
-}
-
-std::unique_ptr<GymClass> ClassDAO::getClassById(int id) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, name, trainer, max_participants, date, time, duration, description "
-        "FROM classes WHERE id = ?";
-
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    sqlite3_bind_int(stmt, 1, id);
-
-    rc = sqlite3_step(stmt);
-
-    if (rc == SQLITE_ROW) {
-        auto gymClass = std::make_unique<GymClass>(rowToGymClass(stmt));
-        sqlite3_finalize(stmt);
-        return gymClass;
-    }
-    else {
-        sqlite3_finalize(stmt);
+    if (dane.empty()) {
         return nullptr;
     }
+
+    return std::make_unique<Zajecia>(utworzZajeciaZWiersza(dane[0]));
 }
 
-int ClassDAO::addClass(const GymClass& gymClass) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "INSERT INTO classes (name, trainer, max_participants, date, time, duration, description) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)";
+int ZajeciaDAO::dodajZajecia(const Zajecia& zajecia) {
+    std::stringstream zapytanie;
+    zapytanie << "INSERT INTO gym_classes (name, trainer, max_participants, date, time, duration, description) VALUES ("
+        << "'" << zajecia.pobierzNazwe() << "', "
+        << "'" << zajecia.pobierzTrenera() << "', "
+        << zajecia.pobierzMaksUczestnikow() << ", "
+        << "'" << zajecia.pobierzDate() << "', "
+        << "'" << zajecia.pobierzCzas() << "', "
+        << zajecia.pobierzCzasTrwania() << ", "
+        << "'" << zajecia.pobierzOpis() << "')";
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    sqlite3_bind_text(stmt, 1, gymClass.getName().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, gymClass.getTrainer().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 3, gymClass.getMaxParticipants());
-    sqlite3_bind_text(stmt, 4, gymClass.getDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 5, gymClass.getTime().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 6, gymClass.getDuration());
-    sqlite3_bind_text(stmt, 7, gymClass.getDescription().c_str(), -1, SQLITE_STATIC);
-
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    return dbManager.getLastInsertRowId();
+    return menedzerBD.wykonajZapytanieZwracajaceId(zapytanie.str());
 }
 
-bool ClassDAO::updateClass(const GymClass& gymClass) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "UPDATE classes SET name = ?, trainer = ?, max_participants = ?, "
-        "date = ?, time = ?, duration = ?, description = ? WHERE id = ?";
+bool ZajeciaDAO::aktualizujZajecia(const Zajecia& zajecia) {
+    std::stringstream zapytanie;
+    zapytanie << "UPDATE gym_classes SET "
+        << "name = '" << zajecia.pobierzNazwe() << "', "
+        << "trainer = '" << zajecia.pobierzTrenera() << "', "
+        << "max_participants = " << zajecia.pobierzMaksUczestnikow() << ", "
+        << "date = '" << zajecia.pobierzDate() << "', "
+        << "time = '" << zajecia.pobierzCzas() << "', "
+        << "duration = " << zajecia.pobierzCzasTrwania() << ", "
+        << "description = '" << zajecia.pobierzOpis() << "' "
+        << "WHERE id = " << zajecia.pobierzId();
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+    try {
+        menedzerBD.wykonajZapytanie(zapytanie.str());
+        return true;
     }
-
-    sqlite3_bind_text(stmt, 1, gymClass.getName().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, gymClass.getTrainer().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 3, gymClass.getMaxParticipants());
-    sqlite3_bind_text(stmt, 4, gymClass.getDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 5, gymClass.getTime().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 6, gymClass.getDuration());
-    sqlite3_bind_text(stmt, 7, gymClass.getDescription().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 8, gymClass.getId());
-
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-
-    return rc == SQLITE_DONE;
-}
-
-bool ClassDAO::deleteClass(int id) {
-    sqlite3* db = dbManager.getConnection();
-
-    // Najpierw usuwamy powi¹zane rezerwacje
-    const char* deleteReservationsQuery = "DELETE FROM reservations WHERE class_id = ?";
-
-    sqlite3_stmt* stmt1;
-    int rc = sqlite3_prepare_v2(db, deleteReservationsQuery, -1, &stmt1, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    sqlite3_bind_int(stmt1, 1, id);
-    rc = sqlite3_step(stmt1);
-    sqlite3_finalize(stmt1);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    // Teraz usuwamy same zajêcia
-    const char* deleteClassQuery = "DELETE FROM classes WHERE id = ?";
-
-    sqlite3_stmt* stmt2;
-    rc = sqlite3_prepare_v2(db, deleteClassQuery, -1, &stmt2, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    sqlite3_bind_int(stmt2, 1, id);
-    rc = sqlite3_step(stmt2);
-    sqlite3_finalize(stmt2);
-
-    return rc == SQLITE_DONE;
-}
-
-std::vector<Reservation> ClassDAO::getAllReservations() {
-    std::vector<Reservation> reservations;
-
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, client_id, class_id, reservation_date, status FROM reservations";
-
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        reservations.push_back(rowToReservation(stmt));
-    }
-
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    return reservations;
-}
-
-std::vector<Reservation> ClassDAO::getReservationsByClientId(int clientId) {
-    std::vector<Reservation> reservations;
-
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, client_id, class_id, reservation_date, status FROM reservations "
-        "WHERE client_id = ?";
-
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    sqlite3_bind_int(stmt, 1, clientId);
-
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        reservations.push_back(rowToReservation(stmt));
-    }
-
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    return reservations;
-}
-
-std::vector<Reservation> ClassDAO::getReservationsByClassId(int classId) {
-    std::vector<Reservation> reservations;
-
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, client_id, class_id, reservation_date, status FROM reservations "
-        "WHERE class_id = ?";
-
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    sqlite3_bind_int(stmt, 1, classId);
-
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        reservations.push_back(rowToReservation(stmt));
-    }
-
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    return reservations;
-}
-
-std::unique_ptr<Reservation> ClassDAO::getReservationById(int id) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, client_id, class_id, reservation_date, status FROM reservations "
-        "WHERE id = ?";
-
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    sqlite3_bind_int(stmt, 1, id);
-
-    rc = sqlite3_step(stmt);
-
-    if (rc == SQLITE_ROW) {
-        auto reservation = std::make_unique<Reservation>(rowToReservation(stmt));
-        sqlite3_finalize(stmt);
-        return reservation;
-    }
-    else {
-        sqlite3_finalize(stmt);
-        return nullptr;
+    catch (const WyjatekBazyDanych&) {
+        return false;
     }
 }
 
-int ClassDAO::addReservation(const Reservation& reservation) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "INSERT INTO reservations (client_id, class_id, reservation_date, status) "
-        "VALUES (?, ?, ?, ?)";
+bool ZajeciaDAO::usunZajecia(int id) {
+    std::stringstream zapytanie;
+    zapytanie << "DELETE FROM gym_classes WHERE id = " << id;
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+    try {
+        menedzerBD.wykonajZapytanie(zapytanie.str());
+        return true;
     }
-
-    sqlite3_bind_int(stmt, 1, reservation.getClientId());
-    sqlite3_bind_int(stmt, 2, reservation.getClassId());
-    sqlite3_bind_text(stmt, 3, reservation.getReservationDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 4, reservation.getStatus().c_str(), -1, SQLITE_STATIC);
-
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
+    catch (const WyjatekBazyDanych&) {
+        return false;
     }
-
-    return dbManager.getLastInsertRowId();
 }
 
-bool ClassDAO::updateReservation(const Reservation& reservation) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "UPDATE reservations SET client_id = ?, class_id = ?, "
-        "reservation_date = ?, status = ? WHERE id = ?";
+std::vector<Rezerwacja> ZajeciaDAO::pobierzWszystkieRezerwacje() {
+    std::vector<Rezerwacja> rezerwacje;
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
+    auto dane = menedzerBD.pobierzDane("SELECT * FROM reservations ORDER BY reservation_date DESC");
 
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+    for (const auto& wiersz : dane) {
+        rezerwacje.push_back(utworzRezerwacjeZWiersza(wiersz));
     }
 
-    sqlite3_bind_int(stmt, 1, reservation.getClientId());
-    sqlite3_bind_int(stmt, 2, reservation.getClassId());
-    sqlite3_bind_text(stmt, 3, reservation.getReservationDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 4, reservation.getStatus().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 5, reservation.getId());
-
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-
-    return rc == SQLITE_DONE;
+    return rezerwacje;
 }
 
-bool ClassDAO::deleteReservation(int id) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "DELETE FROM reservations WHERE id = ?";
+std::vector<Rezerwacja> ZajeciaDAO::pobierzRezerwacjeKlienta(int idKlienta) {
+    std::vector<Rezerwacja> rezerwacje;
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
+    std::stringstream zapytanie;
+    zapytanie << "SELECT * FROM reservations WHERE client_id = " << idKlienta << " ORDER BY reservation_date DESC";
 
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+    auto dane = menedzerBD.pobierzDane(zapytanie.str());
+
+    for (const auto& wiersz : dane) {
+        rezerwacje.push_back(utworzRezerwacjeZWiersza(wiersz));
     }
 
-    sqlite3_bind_int(stmt, 1, id);
-
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-
-    return rc == SQLITE_DONE;
+    return rezerwacje;
 }
 
-int ClassDAO::getReservationCountForClass(int classId) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT COUNT(*) FROM reservations WHERE class_id = ? AND status = 'confirmed'";
+std::vector<Rezerwacja> ZajeciaDAO::pobierzRezerwacjeZajec(int idZajec) {
+    std::vector<Rezerwacja> rezerwacje;
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
+    std::stringstream zapytanie;
+    zapytanie << "SELECT * FROM reservations WHERE class_id = " << idZajec << " ORDER BY reservation_date";
 
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+    auto dane = menedzerBD.pobierzDane(zapytanie.str());
+
+    for (const auto& wiersz : dane) {
+        rezerwacje.push_back(utworzRezerwacjeZWiersza(wiersz));
     }
 
-    sqlite3_bind_int(stmt, 1, classId);
+    return rezerwacje;
+}
 
-    rc = sqlite3_step(stmt);
+int ZajeciaDAO::dodajRezerwacje(const Rezerwacja& rezerwacja) {
+    std::stringstream zapytanie;
+    zapytanie << "INSERT INTO reservations (client_id, class_id, reservation_date, status) VALUES ("
+        << rezerwacja.pobierzIdKlienta() << ", "
+        << rezerwacja.pobierzIdZajec() << ", "
+        << "'" << rezerwacja.pobierzDateRezerwacji() << "', "
+        << "'" << rezerwacja.pobierzStatus() << "')";
 
-    int count = 0;
-    if (rc == SQLITE_ROW) {
-        count = sqlite3_column_int(stmt, 0);
+    return menedzerBD.wykonajZapytanieZwracajaceId(zapytanie.str());
+}
+
+bool ZajeciaDAO::aktualizujRezerwacje(const Rezerwacja& rezerwacja) {
+    std::stringstream zapytanie;
+    zapytanie << "UPDATE reservations SET "
+        << "client_id = " << rezerwacja.pobierzIdKlienta() << ", "
+        << "class_id = " << rezerwacja.pobierzIdZajec() << ", "
+        << "reservation_date = '" << rezerwacja.pobierzDateRezerwacji() << "', "
+        << "status = '" << rezerwacja.pobierzStatus() << "' "
+        << "WHERE id = " << rezerwacja.pobierzId();
+
+    try {
+        menedzerBD.wykonajZapytanie(zapytanie.str());
+        return true;
+    }
+    catch (const WyjatekBazyDanych&) {
+        return false;
+    }
+}
+
+bool ZajeciaDAO::usunRezerwacje(int id) {
+    std::stringstream zapytanie;
+    zapytanie << "DELETE FROM reservations WHERE id = " << id;
+
+    try {
+        menedzerBD.wykonajZapytanie(zapytanie.str());
+        return true;
+    }
+    catch (const WyjatekBazyDanych&) {
+        return false;
+    }
+}
+
+int ZajeciaDAO::policzRezerwacjeZajec(int idZajec) {
+    std::stringstream zapytanie;
+    zapytanie << "SELECT COUNT(*) FROM reservations "
+        << "WHERE class_id = " << idZajec << " "
+        << "AND status = 'potwierdzona'";
+
+    std::string wynik = menedzerBD.pobierzWartosc(zapytanie.str());
+
+    return std::stoi(wynik);
+}
+
+Zajecia ZajeciaDAO::utworzZajeciaZWiersza(const WierszBD& wiersz) {
+    if (wiersz.size() < 8) {
+        throw WyjatekBazyDanych("Nieprawid³owa liczba kolumn dla zajêæ");
     }
 
-    sqlite3_finalize(stmt);
+    int id = std::stoi(wiersz[0]);
+    std::string nazwa = wiersz[1];
+    std::string trener = wiersz[2];
+    int maksUczestnikow = std::stoi(wiersz[3]);
+    std::string data = wiersz[4];
+    std::string czas = wiersz[5];
+    int czasTrwania = std::stoi(wiersz[6]);
+    std::string opis = wiersz[7];
 
-    return count;
+    return Zajecia(id, nazwa, trener, maksUczestnikow, data, czas, czasTrwania, opis);
 }
 
-GymClass ClassDAO::rowToGymClass(sqlite3_stmt* stmt) {
-    int id = sqlite3_column_int(stmt, 0);
+Rezerwacja ZajeciaDAO::utworzRezerwacjeZWiersza(const WierszBD& wiersz) {
+    if (wiersz.size() < 5) {
+        throw WyjatekBazyDanych("Nieprawid³owa liczba kolumn dla rezerwacji");
+    }
 
-    const char* name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-    const char* trainer = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-    int maxParticipants = sqlite3_column_int(stmt, 3);
-    const char* date = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
-    const char* time = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
-    int duration = sqlite3_column_int(stmt, 6);
-    const char* description = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
+    int id = std::stoi(wiersz[0]);
+    int idKlienta = std::stoi(wiersz[1]);
+    int idZajec = std::stoi(wiersz[2]);
+    std::string dataRezerwacji = wiersz[3];
+    std::string status = wiersz[4];
 
-    return GymClass(
-        id,
-        name ? std::string(name) : "",
-        trainer ? std::string(trainer) : "",
-        maxParticipants,
-        date ? std::string(date) : "",
-        time ? std::string(time) : "",
-        duration,
-        description ? std::string(description) : ""
-    );
-}
-
-Reservation ClassDAO::rowToReservation(sqlite3_stmt* stmt) {
-    int id = sqlite3_column_int(stmt, 0);
-    int clientId = sqlite3_column_int(stmt, 1);
-    int classId = sqlite3_column_int(stmt, 2);
-
-    const char* reservationDate = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-    const char* status = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
-
-    return Reservation(
-        id,
-        clientId,
-        classId,
-        reservationDate ? std::string(reservationDate) : "",
-        status ? std::string(status) : "confirmed"
-    );
+    return Rezerwacja(id, idKlienta, idZajec, dataRezerwacji, status);
 }

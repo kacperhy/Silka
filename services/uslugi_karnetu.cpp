@@ -1,134 +1,92 @@
-// services/membership_service.cpp
-#include "membership_service.h"
-#include <stdexcept>
-#include <iostream>
+// services/uslugi_karnetu.cpp
+#include "uslugi_karnetu.h"
 
-MembershipService::MembershipService(MembershipDAO& membershipDao) : membershipDao(membershipDao) {
+UslugiKarnetu::UslugiKarnetu(KarnetDAO& karnetDAO) : karnetDAO(karnetDAO) {
 }
 
-std::vector<Membership> MembershipService::getAllMemberships() {
-    return membershipDao.getAllMemberships();
+std::vector<Karnet> UslugiKarnetu::pobierzWszystkieKarnety() {
+    return karnetDAO.pobierzWszystkie();
 }
 
-std::vector<Membership> MembershipService::getMembershipsByClientId(int clientId) {
-    return membershipDao.getMembershipsByClientId(clientId);
+std::unique_ptr<Karnet> UslugiKarnetu::pobierzKarnetPoId(int id) {
+    return karnetDAO.pobierzPoId(id);
 }
 
-std::unique_ptr<Membership> MembershipService::getMembershipById(int id) {
-    return membershipDao.getMembershipById(id);
+std::vector<Karnet> UslugiKarnetu::pobierzKarnetyKlienta(int idKlienta) {
+    return karnetDAO.pobierzDlaKlienta(idKlienta);
 }
 
-std::unique_ptr<Membership> MembershipService::getActiveMembershipForClient(int clientId) {
-    return membershipDao.getActiveMembershipForClient(clientId);
+int UslugiKarnetu::dodajKarnet(const Karnet& karnet) {
+    return karnetDAO.dodaj(karnet);
 }
 
-int MembershipService::addMembership(const Membership& membership) {
-    // Walidacja danych karnetu
-    if (membership.getClientId() <= 0) {
-        throw std::invalid_argument("Nieprawid≥owy identyfikator klienta");
+bool UslugiKarnetu::aktualizujKarnet(const Karnet& karnet) {
+    return karnetDAO.aktualizuj(karnet);
+}
+
+bool UslugiKarnetu::usunKarnet(int id) {
+    return karnetDAO.usun(id);
+}
+
+Karnet UslugiKarnetu::utworzKarnetMiesieczny(int idKlienta, bool czyStudent) {
+    std::string typKarnetu = pobierzTypKarnetu("miesieczny", czyStudent);
+    std::string dataRozpoczecia = Karnet::pobierzAktualnaDate();
+    std::string dataZakonczenia = Karnet::dodajDniDoData(dataRozpoczecia, 30);
+    double cena = obliczCene("miesieczny", czyStudent);
+
+    Karnet karnet(-1, idKlienta, typKarnetu, dataRozpoczecia, dataZakonczenia, cena, true);
+    return karnet;
+}
+
+Karnet UslugiKarnetu::utworzKarnetKwartalny(int idKlienta, bool czyStudent) {
+    std::string typKarnetu = pobierzTypKarnetu("kwartalny", czyStudent);
+    std::string dataRozpoczecia = Karnet::pobierzAktualnaDate();
+    std::string dataZakonczenia = Karnet::dodajDniDoData(dataRozpoczecia, 90);
+    double cena = obliczCene("kwartalny", czyStudent);
+
+    Karnet karnet(-1, idKlienta, typKarnetu, dataRozpoczecia, dataZakonczenia, cena, true);
+    return karnet;
+}
+
+Karnet UslugiKarnetu::utworzKarnetRoczny(int idKlienta, bool czyStudent) {
+    std::string typKarnetu = pobierzTypKarnetu("roczny", czyStudent);
+    std::string dataRozpoczecia = Karnet::pobierzAktualnaDate();
+    std::string dataZakonczenia = Karnet::dodajDniDoData(dataRozpoczecia, 365);
+    double cena = obliczCene("roczny", czyStudent);
+
+    Karnet karnet(-1, idKlienta, typKarnetu, dataRozpoczecia, dataZakonczenia, cena, true);
+    return karnet;
+}
+
+double UslugiKarnetu::obliczCene(const std::string& typ, bool czyStudent) {
+    double cena = 0.0;
+
+    if (typ == "miesieczny") {
+        cena = CENA_MIESIECZNY;
+    }
+    else if (typ == "kwartalny") {
+        cena = CENA_KWARTALNY;
+    }
+    else if (typ == "roczny") {
+        cena = CENA_ROCZNY;
     }
 
-    if (membership.getPrice() < 0) {
-        throw std::invalid_argument("Cena karnetu nie moøe byÊ ujemna");
+    if (czyStudent) {
+        cena = cena * (1.0 - ZNIZKA_STUDENCKA / 100.0);
     }
 
-    // Dodanie karnetu do bazy
-    return membershipDao.addMembership(membership);
+    return cena;
 }
 
-bool MembershipService::updateMembership(const Membership& membership) {
-    // Walidacja podobna jak przy dodawaniu
-    if (membership.getClientId() <= 0) {
-        throw std::invalid_argument("Nieprawid≥owy identyfikator klienta");
-    }
-
-    if (membership.getPrice() < 0) {
-        throw std::invalid_argument("Cena karnetu nie moøe byÊ ujemna");
-    }
-
-    return membershipDao.updateMembership(membership);
-}
-
-bool MembershipService::removeMembership(int id) {
-    return membershipDao.deleteMembership(id);
-}
-
-bool MembershipService::renewMembership(int id, int days) {
-    if (days <= 0) {
-        throw std::invalid_argument("Liczba dni przed≥uøenia musi byÊ dodatnia");
-    }
-
-    auto membership = membershipDao.getMembershipById(id);
-
-    if (!membership) {
-        return false;
-    }
-
-    // Przed≥uøenie karnetu
-    std::string newEndDate;
-    if (membership->isValid()) {
-        // Jeúli karnet jest aktywny, przed≥uøamy od daty koÒcowej
-        newEndDate = Membership::addDaysToDate(membership->getEndDate(), days);
-    }
-    else {
-        // Jeúli karnet wygas≥, przed≥uøamy od dzisiaj
-        newEndDate = Membership::addDaysToDate(Membership::getCurrentDate(), days);
-        membership->setStartDate(Membership::getCurrentDate());
-    }
-
-    membership->setEndDate(newEndDate);
-    membership->setIsActive(true);
-
-    return membershipDao.updateMembership(*membership);
-}
-
-Membership MembershipService::createMonthlyMembership(int clientId, bool isStudent) {
-    std::string currentDate = Membership::getCurrentDate();
-    std::string endDate = Membership::addDaysToDate(currentDate, 30);
-
-    std::string type = isStudent ? "student_monthly" : "normal_monthly";
-    double price = calculatePrice(type, isStudent);
-
-    Membership membership(-1, clientId, type, currentDate, endDate, price, true);
-
-    // Debug - sprawdü, czy typ zosta≥ poprawnie ustawiony
-    std::cout << "DEBUG - createMonthlyMembership - ustawiony typ: [" << membership.getType() << "]\n";
-
-    return membership;
-}
-
-Membership MembershipService::createQuarterlyMembership(int clientId, bool isStudent) {
-    std::string currentDate = Membership::getCurrentDate();
-    std::string endDate = Membership::addDaysToDate(currentDate, 90);
-
-    std::string type = isStudent ? "student_quarterly" : "normal_quarterly";
-    double price = calculatePrice(type, isStudent);
-
-    return Membership(-1, clientId, type, currentDate, endDate, price, true);
-}
-
-Membership MembershipService::createYearlyMembership(int clientId, bool isStudent) {
-    std::string currentDate = Membership::getCurrentDate();
-    std::string endDate = Membership::addDaysToDate(currentDate, 365);
-
-    std::string type = isStudent ? "student_yearly" : "normal_yearly";
-    double price = calculatePrice(type, isStudent);
-
-    return Membership(-1, clientId, type, currentDate, endDate, price, true);
-}
-
-double MembershipService::calculatePrice(const std::string& type, bool isStudent) {
-    // Przyk≥adowy cennik
-    if (type == "normal_monthly" || type == "student_monthly") {
-        return isStudent ? 89.0 : 119.0;
-    }
-    else if (type == "normal_quarterly" || type == "student_quarterly") {
-        return isStudent ? 239.0 : 299.0;
-    }
-    else if (type == "normal_yearly" || type == "student_yearly") {
-        return isStudent ? 799.0 : 999.0;
+std::string UslugiKarnetu::pobierzTypKarnetu(const std::string& bazaTypu, bool czyStudent) {
+    if (czyStudent) {
+        return "student_" + bazaTypu;
     }
     else {
-        return 0.0;
+        return "normalny_" + bazaTypu;
     }
+}
+
+bool UslugiKarnetu::czyKlientMaAktywnyKarnet(int idKlienta) {
+    return karnetDAO.czyKlientMaAktywnyKarnet(idKlienta);
 }

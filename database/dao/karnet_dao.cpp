@@ -1,250 +1,123 @@
-// database/dao/membership_dao.cpp
-#include "membership_dao.h"
-#include <sqlite3.h>
-#include <iostream>
+// database/dao/karnet_dao.cpp
+#include "karnet_dao.h"
+#include <sstream>
 
-MembershipDAO::MembershipDAO(DBManager& dbManager) : dbManager(dbManager) {
+KarnetDAO::KarnetDAO(MenedzerBD& menedzerBD) : menedzerBD(menedzerBD) {
 }
 
-std::vector<Membership> MembershipDAO::getAllMemberships() {
-    std::vector<Membership> memberships;
+std::vector<Karnet> KarnetDAO::pobierzWszystkie() {
+    std::vector<Karnet> karnety;
 
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, client_id, type, start_date, end_date, price, is_active FROM memberships";
+    auto dane = menedzerBD.pobierzDane("SELECT * FROM memberships ORDER BY start_date DESC");
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+    for (const auto& wiersz : dane) {
+        karnety.push_back(utworzKarnetZWiersza(wiersz));
     }
 
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        memberships.push_back(rowToMembership(stmt));
-    }
-
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    return memberships;
+    return karnety;
 }
 
-std::vector<Membership> MembershipDAO::getMembershipsByClientId(int clientId) {
-    std::vector<Membership> memberships;
+std::unique_ptr<Karnet> KarnetDAO::pobierzPoId(int id) {
+    std::stringstream zapytanie;
+    zapytanie << "SELECT * FROM memberships WHERE id = " << id;
 
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, client_id, type, start_date, end_date, price, is_active FROM memberships "
-        "WHERE client_id = ?";
+    auto dane = menedzerBD.pobierzDane(zapytanie.str());
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    sqlite3_bind_int(stmt, 1, clientId);
-
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        memberships.push_back(rowToMembership(stmt));
-    }
-
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    return memberships;
-}
-
-std::unique_ptr<Membership> MembershipDAO::getMembershipById(int id) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, client_id, type, start_date, end_date, price, is_active FROM memberships "
-        "WHERE id = ?";
-
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
-
-    sqlite3_bind_int(stmt, 1, id);
-
-    rc = sqlite3_step(stmt);
-
-    if (rc == SQLITE_ROW) {
-        auto membership = std::make_unique<Membership>(rowToMembership(stmt));
-        sqlite3_finalize(stmt);
-        return membership;
-    }
-    else {
-        sqlite3_finalize(stmt);
+    if (dane.empty()) {
         return nullptr;
     }
+
+    return std::make_unique<Karnet>(utworzKarnetZWiersza(dane[0]));
 }
 
-std::unique_ptr<Membership> MembershipDAO::getActiveMembershipForClient(int clientId) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "SELECT id, client_id, type, start_date, end_date, price, is_active FROM memberships "
-        "WHERE client_id = ? AND is_active = 1 AND date(end_date) >= date('now') "
-        "ORDER BY end_date DESC LIMIT 1";
+std::vector<Karnet> KarnetDAO::pobierzDlaKlienta(int idKlienta) {
+    std::vector<Karnet> karnety;
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
+    std::stringstream zapytanie;
+    zapytanie << "SELECT * FROM memberships WHERE client_id = " << idKlienta << " ORDER BY start_date DESC";
 
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+    auto dane = menedzerBD.pobierzDane(zapytanie.str());
+
+    for (const auto& wiersz : dane) {
+        karnety.push_back(utworzKarnetZWiersza(wiersz));
     }
 
-    sqlite3_bind_int(stmt, 1, clientId);
-
-    rc = sqlite3_step(stmt);
-
-    if (rc == SQLITE_ROW) {
-        auto membership = std::make_unique<Membership>(rowToMembership(stmt));
-        sqlite3_finalize(stmt);
-        return membership;
-    }
-    else {
-        sqlite3_finalize(stmt);
-        return nullptr;
-    }
+    return karnety;
 }
 
-int MembershipDAO::addMembership(const Membership& membership) {
-    // Dodaj debug
-    std::cout << "\nDEBUG MembershipDAO::addMembership - Zapisywane dane:\n";
-    std::cout << "  ClientID: " << membership.getClientId() << "\n";
-    std::cout << "  Type: [" << membership.getType() << "]\n";
-    std::cout << "  StartDate: [" << membership.getStartDate() << "]\n";
-    std::cout << "  EndDate: [" << membership.getEndDate() << "]\n";
-    std::cout << "  Price: [" << membership.getPrice() << "]\n";
-    std::cout << "  IsActive: [" << (membership.getIsActive() ? "Tak" : "Nie") << "]\n";
+int KarnetDAO::dodaj(const Karnet& karnet) {
+    std::stringstream zapytanie;
+    zapytanie << "INSERT INTO memberships (client_id, type, start_date, end_date, price, is_active) VALUES ("
+        << karnet.pobierzIdKlienta() << ", "
+        << "'" << karnet.pobierzTyp() << "', "
+        << "'" << karnet.pobierzDateRozpoczecia() << "', "
+        << "'" << karnet.pobierzDateZakonczenia() << "', "
+        << karnet.pobierzCene() << ", "
+        << (karnet.pobierzCzyAktywny() ? 1 : 0) << ")";
+
+    return menedzerBD.wykonajZapytanieZwracajaceId(zapytanie.str());
+}
+
+bool KarnetDAO::aktualizuj(const Karnet& karnet) {
+    std::stringstream zapytanie;
+    zapytanie << "UPDATE memberships SET "
+        << "client_id = " << karnet.pobierzIdKlienta() << ", "
+        << "type = '" << karnet.pobierzTyp() << "', "
+        << "start_date = '" << karnet.pobierzDateRozpoczecia() << "', "
+        << "end_date = '" << karnet.pobierzDateZakonczenia() << "', "
+        << "price = " << karnet.pobierzCene() << ", "
+        << "is_active = " << (karnet.pobierzCzyAktywny() ? 1 : 0) << " "
+        << "WHERE id = " << karnet.pobierzId();
 
     try {
-        // ZnajdŸ najwy¿sze ID
-        sqlite3* db = dbManager.getConnection();
-        const char* maxIdQuery = "SELECT MAX(id) FROM memberships";
-
-        sqlite3_stmt* stmt;
-        int rc = sqlite3_prepare_v2(db, maxIdQuery, -1, &stmt, nullptr);
-
-        if (rc != SQLITE_OK) {
-            throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-        }
-
-        int nextId = 1; // Domyœlne ID, jeœli tabela jest pusta
-
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-            int maxId = sqlite3_column_int(stmt, 0);
-            nextId = maxId + 1;
-        }
-
-        sqlite3_finalize(stmt);
-
-        // Teraz dodajemy karnet z ustalonym ID
-        const char* insertQuery = "INSERT INTO memberships (id, client_id, type, start_date, end_date, price, is_active) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)";
-
-        rc = sqlite3_prepare_v2(db, insertQuery, -1, &stmt, nullptr);
-
-        if (rc != SQLITE_OK) {
-            throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-        }
-
-        sqlite3_bind_int(stmt, 1, nextId);
-        sqlite3_bind_int(stmt, 2, membership.getClientId());
-        sqlite3_bind_text(stmt, 3, membership.getType().c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 4, membership.getStartDate().c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 5, membership.getEndDate().c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_double(stmt, 6, membership.getPrice());
-        sqlite3_bind_int(stmt, 7, membership.getIsActive() ? 1 : 0);
-
-        rc = sqlite3_step(stmt);
-        sqlite3_finalize(stmt);
-
-        if (rc != SQLITE_DONE) {
-            throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
-        }
-
-        return nextId;
+        menedzerBD.wykonajZapytanie(zapytanie.str());
+        return true;
     }
-    catch (const std::exception& e) {
-        throw DatabaseException(std::string("B³¹d podczas dodawania karnetu: ") + e.what());
-    }
-    catch (...) {
-        throw DatabaseException("Nieznany b³¹d podczas dodawania karnetu");
+    catch (const WyjatekBazyDanych&) {
+        return false;
     }
 }
 
-bool MembershipDAO::updateMembership(const Membership& membership) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "UPDATE memberships SET client_id = ?, type = ?, start_date = ?, "
-        "end_date = ?, price = ?, is_active = ? WHERE id = ?";
+bool KarnetDAO::usun(int id) {
+    std::stringstream zapytanie;
+    zapytanie << "DELETE FROM memberships WHERE id = " << id;
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+    try {
+        menedzerBD.wykonajZapytanie(zapytanie.str());
+        return true;
     }
-
-    sqlite3_bind_int(stmt, 1, membership.getClientId());
-    sqlite3_bind_text(stmt, 2, membership.getType().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 3, membership.getStartDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 4, membership.getEndDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_double(stmt, 5, membership.getPrice());
-    sqlite3_bind_int(stmt, 6, membership.getIsActive() ? 1 : 0);
-    sqlite3_bind_int(stmt, 7, membership.getId());
-
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-
-    return rc == SQLITE_DONE;
+    catch (const WyjatekBazyDanych&) {
+        return false;
+    }
 }
 
-bool MembershipDAO::deleteMembership(int id) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "DELETE FROM memberships WHERE id = ?";
+bool KarnetDAO::czyKlientMaAktywnyKarnet(int idKlienta) {
+    std::string aktualnaDdata = Karnet::pobierzAktualnaDate();
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
+    std::stringstream zapytanie;
+    zapytanie << "SELECT COUNT(*) FROM memberships "
+        << "WHERE client_id = " << idKlienta << " "
+        << "AND is_active = 1 "
+        << "AND start_date <= '" << aktualnaDdata << "' "
+        << "AND end_date >= '" << aktualnaDdata << "'";
 
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
-    }
+    std::string wynik = menedzerBD.pobierzWartosc(zapytanie.str());
 
-    sqlite3_bind_int(stmt, 1, id);
-
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-
-    return rc == SQLITE_DONE;
+    return std::stoi(wynik) > 0;
 }
 
-Membership MembershipDAO::rowToMembership(sqlite3_stmt* stmt) {
-    int id = sqlite3_column_int(stmt, 0);
-    int clientId = sqlite3_column_int(stmt, 1);
+Karnet KarnetDAO::utworzKarnetZWiersza(const WierszBD& wiersz) {
+    if (wiersz.size() < 7) {
+        throw WyjatekBazyDanych("Nieprawid³owa liczba kolumn dla karnetu");
+    }
 
-    const char* type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-    const char* startDate = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-    const char* endDate = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+    int id = std::stoi(wiersz[0]);
+    int idKlienta = std::stoi(wiersz[1]);
+    std::string typ = wiersz[2];
+    std::string dataRozpoczecia = wiersz[3];
+    std::string dataZakonczenia = wiersz[4];
+    double cena = std::stod(wiersz[5]);
+    bool czyAktywny = (wiersz[6] == "1" || wiersz[6] == "true");
 
-    double price = sqlite3_column_double(stmt, 5);
-    bool isActive = sqlite3_column_int(stmt, 6) != 0;
-
-    return Membership(
-        id,
-        clientId,
-        type ? std::string(type) : "",
-        startDate ? std::string(startDate) : "",
-        endDate ? std::string(endDate) : "",
-        price,
-        isActive
-    );
+    return Karnet(id, idKlienta, typ, dataRozpoczecia, dataZakonczenia, cena, czyAktywny);
 }
