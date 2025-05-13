@@ -1,4 +1,5 @@
 // models/reservation.cpp
+#define _CRT_SECURE_NO_WARNINGS
 #include "reservation.h"
 
 Reservation::Reservation() : id(-1), clientId(-1), classId(-1),

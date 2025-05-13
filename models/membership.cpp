@@ -1,4 +1,5 @@
 // models/membership.cpp
+#define _CRT_SECURE_NO_WARNINGS
 #include "membership.h"
 #include <ctime>
 #include <chrono>

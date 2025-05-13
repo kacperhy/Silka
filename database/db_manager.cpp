@@ -26,12 +26,13 @@ void DBManager::open() {
 
     isOpen = true;
 
-    // W³¹czenie obs³ugi kluczy obcych
+    // W³¹czenie obs³ugi kluczy obcych i kodowania UTF-8
     executeQuery("PRAGMA foreign_keys = ON");
+    executeQuery("PRAGMA encoding = 'UTF-8'");
 
-    // Tworzenie tabel, jeœli nie istniej¹
+    // Tworzenie tabel, jeœli nie istniej¹ - ZMIANA W DEFINICJI TABELI CLIENTS
     executeQuery("CREATE TABLE IF NOT EXISTS clients ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "id INTEGER PRIMARY KEY AUTOINCREMENT," // DODANE S£OWO KLUCZOWE AUTOINCREMENT
         "first_name TEXT NOT NULL,"
         "last_name TEXT NOT NULL,"
         "email TEXT,"
@@ -41,6 +42,7 @@ void DBManager::open() {
         "notes TEXT"
         ")");
 
+    // Pozosta³e tabele pozostaj¹ bez zmian
     executeQuery("CREATE TABLE IF NOT EXISTS memberships ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "client_id INTEGER NOT NULL,"

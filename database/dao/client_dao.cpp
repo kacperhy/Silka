@@ -59,33 +59,61 @@ std::unique_ptr<Client> ClientDAO::getClientById(int id) {
 }
 
 int ClientDAO::addClient(const Client& client) {
-    sqlite3* db = dbManager.getConnection();
-    const char* query = "INSERT INTO clients (first_name, last_name, email, phone, birth_date, registration_date, notes) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)";
+    try {
+        // Najpierw znajdujemy najwy¿sze ID
+        sqlite3* db = dbManager.getConnection();
+        const char* maxIdQuery = "SELECT MAX(id) FROM clients";
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
+        sqlite3_stmt* stmt;
+        int rc = sqlite3_prepare_v2(db, maxIdQuery, -1, &stmt, nullptr);
 
-    if (rc != SQLITE_OK) {
-        throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+        if (rc != SQLITE_OK) {
+            throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+        }
+
+        int nextId = 1; // Domyœlne ID, jeœli tabela jest pusta
+
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            int maxId = sqlite3_column_int(stmt, 0);
+            nextId = maxId + 1;
+        }
+
+        sqlite3_finalize(stmt);
+
+        // Teraz dodajemy klienta z jawnie podanym ID
+        const char* insertQuery = "INSERT INTO clients (id, first_name, last_name, email, phone, birth_date, registration_date, notes) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+        rc = sqlite3_prepare_v2(db, insertQuery, -1, &stmt, nullptr);
+
+        if (rc != SQLITE_OK) {
+            throw DatabaseException("B³¹d przygotowania zapytania: " + std::string(sqlite3_errmsg(db)));
+        }
+
+        sqlite3_bind_int(stmt, 1, nextId);
+        sqlite3_bind_text(stmt, 2, client.getFirstName().c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 3, client.getLastName().c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 4, client.getEmail().c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 5, client.getPhone().c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 6, client.getBirthDate().c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 7, client.getRegistrationDate().c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 8, client.getNotes().c_str(), -1, SQLITE_STATIC);
+
+        rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+
+        if (rc != SQLITE_DONE) {
+            throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
+        }
+
+        return nextId;
     }
-
-    sqlite3_bind_text(stmt, 1, client.getFirstName().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, client.getLastName().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 3, client.getEmail().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 4, client.getPhone().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 5, client.getBirthDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 6, client.getRegistrationDate().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 7, client.getNotes().c_str(), -1, SQLITE_STATIC);
-
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE) {
-        throw DatabaseException("B³¹d wykonania zapytania: " + std::string(sqlite3_errmsg(db)));
+    catch (const std::exception& e) {
+        throw DatabaseException(std::string("B³¹d podczas dodawania klienta: ") + e.what());
     }
-
-    return dbManager.getLastInsertRowId();
+    catch (...) {
+        throw DatabaseException("Nieznany b³¹d podczas dodawania klienta");
+    }
 }
 
 bool ClientDAO::updateClient(const Client& client) {

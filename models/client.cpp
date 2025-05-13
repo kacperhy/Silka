@@ -1,4 +1,5 @@
 // models/client.cpp
+#define _CRT_SECURE_NO_WARNINGS
 #include "client.h"
 
 Client::Client() : id(-1), firstName(""), lastName(""), email(""), 
