@@ -12,14 +12,14 @@ class ZajeciaDAO {
 public:
     explicit ZajeciaDAO(MenedzerBD& menedzerBD);
 
-    // Metody CRUD dla zajêæ
+
     std::vector<Zajecia> pobierzWszystkieZajecia();
     std::unique_ptr<Zajecia> pobierzZajeciaPoId(int id);
     int dodajZajecia(const Zajecia& zajecia);
     bool aktualizujZajecia(const Zajecia& zajecia);
     bool usunZajecia(int id);
 
-    // Metody CRUD dla rezerwacji
+   
     std::vector<Rezerwacja> pobierzWszystkieRezerwacje();
     std::vector<Rezerwacja> pobierzRezerwacjeKlienta(int idKlienta);
     std::vector<Rezerwacja> pobierzRezerwacjeZajec(int idZajec);

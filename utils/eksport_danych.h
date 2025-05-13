@@ -1,4 +1,3 @@
-// utils/eksport_danych.h
 #ifndef EKSPORT_DANYCH_H
 #define EKSPORT_DANYCH_H
 
@@ -22,13 +21,11 @@ class EksportDanych {
 public:
     EksportDanych(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKarnetu, UslugiZajec& uslugiZajec);
 
-    // Metody eksportu do CSV
     bool eksportujKlientowDoCSV(const std::string& sciezkaPliku);
     bool eksportujKarnetyDoCSV(const std::string& sciezkaPliku);
     bool eksportujZajeciaDoCSV(const std::string& sciezkaPliku);
     bool eksportujRezerwacjeDoCSV(const std::string& sciezkaPliku);
 
-    // Metody eksportu do JSON
     bool eksportujKlientowDoJSON(const std::string& sciezkaPliku);
     bool eksportujKarnetyDoJSON(const std::string& sciezkaPliku);
     bool eksportujZajeciaDoJSON(const std::string& sciezkaPliku);
@@ -39,10 +36,8 @@ private:
     UslugiKarnetu& uslugiKarnetu;
     UslugiZajec& uslugiZajec;
 
-    // Metody pomocnicze do formatowania CSV
     std::string escapujCSV(const std::string& str);
 
-    // Metody pomocnicze do formatowania JSON
     std::string klientDoJSON(const Klient& klient);
     std::string karnetDoJSON(const Karnet& karnet);
     std::string zajeciaDoJSON(const Zajecia& zajecia);
@@ -50,4 +45,4 @@ private:
     std::string escapujJSON(const std::string& str);
 };
 
-#endif // EKSPORT_DANYCH_H
+#endif 

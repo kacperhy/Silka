@@ -1,38 +1,191 @@
-// database/db_manager.cpp
-#include "db_manager.h"
+#include "menedzer_bd.h"
 #include <iostream>
 
-DBManager::DBManager(const std::string& dbPath) : dbPath(dbPath), connection(nullptr), isOpen(false) {
+MenedzerBD::MenedzerBD(const std::string& sciezkaPliku)
+    : sciezkaPliku(sciezkaPliku), polaczenie(nullptr) {
 }
 
-DBManager::~DBManager() {
-    if (isOpen) {
-        close();
+MenedzerBD::~MenedzerBD() {
+    if (czyOtwarta()) {
+        zamknij();
     }
 }
 
-void DBManager::open() {
-    if (isOpen) {
+void MenedzerBD::otworz() {
+    if (czyOtwarta()) {
         return;
     }
 
-    int rc = sqlite3_open(dbPath.c_str(), &connection);
-    if (rc != SQLITE_OK) {
-        std::string errorMsg = "Nie mo¿na otworzyæ bazy danych: ";
-        errorMsg += sqlite3_errmsg(connection);
-        sqlite3_close(connection);
-        throw DatabaseException(errorMsg);
+    int rc = sqlite3_open(sciezkaPliku.c_str(), &polaczenie);
+    sprawdzBlad(rc, "Otwieranie bazy danych");
+
+    inicjalizujBazeDanych();
+}
+
+void MenedzerBD::zamknij() {
+    if (!czyOtwarta()) {
+        return;
     }
 
-    isOpen = true;
+    int rc = sqlite3_close(polaczenie);
+    sprawdzBlad(rc, "Zamykanie bazy danych");
+    polaczenie = nullptr;
+}
 
-    // W³¹czenie obs³ugi kluczy obcych i kodowania UTF-8
-    executeQuery("PRAGMA foreign_keys = ON");
-    executeQuery("PRAGMA encoding = 'UTF-8'");
+bool MenedzerBD::czyOtwarta() const {
+    return polaczenie != nullptr;
+}
 
-    // Tworzenie tabel, jeœli nie istniej¹ - ZMIANA W DEFINICJI TABELI CLIENTS
-    executeQuery("CREATE TABLE IF NOT EXISTS clients ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT," // DODANE S£OWO KLUCZOWE AUTOINCREMENT
+void MenedzerBD::wykonajZapytanie(const std::string& zapytanie) {
+    if (!czyOtwarta()) {
+        throw WyjatekBazyDanych("Baza danych nie jest otwarta");
+    }
+
+    char* komunikatBledu = nullptr;
+    int rc = sqlite3_exec(polaczenie, zapytanie.c_str(), nullptr, nullptr, &komunikatBledu);
+
+    if (rc != SQLITE_OK) {
+        std::string blad = "B³¹d SQL: ";
+        if (komunikatBledu) {
+            blad += komunikatBledu;
+            sqlite3_free(komunikatBledu);
+        }
+        throw WyjatekBazyDanych(blad);
+    }
+}
+
+int MenedzerBD::wykonajZapytanieZwracajaceId(const std::string& zapytanie) {
+    wykonajZapytanie(zapytanie);
+    return static_cast<int>(sqlite3_last_insert_rowid(polaczenie));
+}
+
+TabelaBD MenedzerBD::pobierzDane(const std::string& zapytanie) {
+    if (!czyOtwarta()) {
+        throw WyjatekBazyDanych("Baza danych nie jest otwarta");
+    }
+
+    TabelaBD wyniki;
+    sqlite3_stmt* stmt;
+
+    int rc = sqlite3_prepare_v2(polaczenie, zapytanie.c_str(), -1, &stmt, nullptr);
+    sprawdzBlad(rc, "Przygotowanie zapytania");
+
+    int kolumny = sqlite3_column_count(stmt);
+
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        WierszBD wiersz;
+
+        for (int i = 0; i < kolumny; i++) {
+            const unsigned char* wartosc = sqlite3_column_text(stmt, i);
+
+            if (wartosc) {
+                wiersz.push_back(reinterpret_cast<const char*>(wartosc));
+            }
+            else {
+                wiersz.push_back("");
+            }
+        }
+
+        wyniki.push_back(wiersz);
+    }
+
+    if (rc != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        sprawdzBlad(rc, "Pobieranie danych");
+    }
+
+    sqlite3_finalize(stmt);
+    return wyniki;
+}
+
+WierszBD MenedzerBD::pobierzWiersz(const std::string& zapytanie) {
+    TabelaBD wyniki = pobierzDane(zapytanie);
+
+    if (wyniki.empty()) {
+        return WierszBD();
+    }
+
+    return wyniki[0];
+}
+
+std::string MenedzerBD::pobierzWartosc(const std::string& zapytanie) {
+    WierszBD wiersz = pobierzWiersz(zapytanie);
+
+    if (wiersz.empty()) {
+        return "";
+    }
+
+    return wiersz[0];
+}
+
+TabelaBD MenedzerBD::pobierzDaneZParametrami(const std::string& zapytanie,
+    const std::vector<ParamZapytania>& parametry) {
+    if (!czyOtwarta()) {
+        throw WyjatekBazyDanych("Baza danych nie jest otwarta");
+    }
+
+    TabelaBD wyniki;
+    sqlite3_stmt* stmt;
+
+    int rc = sqlite3_prepare_v2(polaczenie, zapytanie.c_str(), -1, &stmt, nullptr);
+    sprawdzBlad(rc, "Przygotowanie zapytania");
+
+    bindParameters(stmt, parametry);
+
+    int kolumny = sqlite3_column_count(stmt);
+
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        WierszBD wiersz;
+
+        for (int i = 0; i < kolumny; i++) {
+            const unsigned char* wartosc = sqlite3_column_text(stmt, i);
+
+            if (wartosc) {
+                wiersz.push_back(reinterpret_cast<const char*>(wartosc));
+            }
+            else {
+                wiersz.push_back("");
+            }
+        }
+
+        wyniki.push_back(wiersz);
+    }
+
+    if (rc != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        sprawdzBlad(rc, "Pobieranie danych");
+    }
+
+    sqlite3_finalize(stmt);
+    return wyniki;
+}
+
+WierszBD MenedzerBD::pobierzWierszZParametrami(const std::string& zapytanie,
+    const std::vector<ParamZapytania>& parametry) {
+    TabelaBD wyniki = pobierzDaneZParametrami(zapytanie, parametry);
+
+    if (wyniki.empty()) {
+        return WierszBD();
+    }
+
+    return wyniki[0];
+}
+
+std::string MenedzerBD::pobierzWartoscZParametrami(const std::string& zapytanie,
+    const std::vector<ParamZapytania>& parametry) {
+    WierszBD wiersz = pobierzWierszZParametrami(zapytanie, parametry);
+
+    if (wiersz.empty()) {
+        return "";
+    }
+
+    return wiersz[0];
+}
+
+void MenedzerBD::inicjalizujBazeDanych() {
+    wykonajZapytanie(
+        "CREATE TABLE IF NOT EXISTS clients ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "first_name TEXT NOT NULL,"
         "last_name TEXT NOT NULL,"
         "email TEXT,"
@@ -40,21 +193,24 @@ void DBManager::open() {
         "birth_date TEXT,"
         "registration_date TEXT NOT NULL,"
         "notes TEXT"
-        ")");
+        ");"
+    );
 
-    // Pozosta³e tabele pozostaj¹ bez zmian
-    executeQuery("CREATE TABLE IF NOT EXISTS memberships ("
+    wykonajZapytanie(
+        "CREATE TABLE IF NOT EXISTS memberships ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "client_id INTEGER NOT NULL,"
         "type TEXT NOT NULL,"
         "start_date TEXT NOT NULL,"
         "end_date TEXT NOT NULL,"
         "price REAL NOT NULL,"
-        "is_active INTEGER NOT NULL,"
-        "FOREIGN KEY (client_id) REFERENCES clients (id)"
-        ")");
+        "is_active INTEGER NOT NULL DEFAULT 1,"
+        "FOREIGN KEY (client_id) REFERENCES clients(id)"
+        ");"
+    );
 
-    executeQuery("CREATE TABLE IF NOT EXISTS classes ("
+    wykonajZapytanie(
+        "CREATE TABLE IF NOT EXISTS gym_classes ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "name TEXT NOT NULL,"
         "trainer TEXT NOT NULL,"
@@ -63,60 +219,41 @@ void DBManager::open() {
         "time TEXT NOT NULL,"
         "duration INTEGER NOT NULL,"
         "description TEXT"
-        ")");
+        ");"
+    );
 
-    executeQuery("CREATE TABLE IF NOT EXISTS reservations ("
+    wykonajZapytanie(
+        "CREATE TABLE IF NOT EXISTS reservations ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "client_id INTEGER NOT NULL,"
         "class_id INTEGER NOT NULL,"
         "reservation_date TEXT NOT NULL,"
         "status TEXT NOT NULL,"
-        "FOREIGN KEY (client_id) REFERENCES clients (id),"
-        "FOREIGN KEY (class_id) REFERENCES classes (id)"
-        ")");
+        "FOREIGN KEY (client_id) REFERENCES clients(id),"
+        "FOREIGN KEY (class_id) REFERENCES gym_classes(id)"
+        ");"
+    );
 }
 
-void DBManager::close() {
-    if (!isOpen) {
-        return;
-    }
-
-    sqlite3_close(connection);
-    connection = nullptr;
-    isOpen = false;
-}
-
-void DBManager::beginTransaction() {
-    executeQuery("BEGIN TRANSACTION");
-}
-
-void DBManager::commit() {
-    executeQuery("COMMIT");
-}
-
-void DBManager::rollback() {
-    executeQuery("ROLLBACK");
-}
-
-void DBManager::executeQuery(const std::string& query) {
-    if (!isOpen) {
-        throw DatabaseException("Baza danych nie jest otwarta");
-    }
-
-    char* errorMsg = nullptr;
-    int rc = sqlite3_exec(connection, query.c_str(), nullptr, nullptr, &errorMsg);
-
-    if (rc != SQLITE_OK) {
-        std::string error = errorMsg ? errorMsg : "Nieznany b³¹d";
-        sqlite3_free(errorMsg);
-        throw DatabaseException("B³¹d wykonania zapytania: " + error);
+void MenedzerBD::sprawdzBlad(int kod, const std::string& operacja) {
+    if (kod != SQLITE_OK && kod != SQLITE_DONE) {
+        std::string komunikat = "B³¹d bazy danych podczas " + operacja + ": ";
+        if (polaczenie) {
+            komunikat += sqlite3_errmsg(polaczenie);
+        }
+        else {
+            komunikat += "po³¹czenie nie zosta³o ustanowione";
+        }
+        throw WyjatekBazyDanych(komunikat);
     }
 }
 
-int DBManager::getLastInsertRowId() {
-    return sqlite3_last_insert_rowid(connection);
-}
+void MenedzerBD::bindParameters(sqlite3_stmt* stmt, const std::vector<ParamZapytania>& parametry) {
+    for (const auto& param : parametry) {
+        int index = param.first;
+        const std::string& wartosc = param.second;
 
-sqlite3* DBManager::getConnection() const {
-    return connection;
+        int rc = sqlite3_bind_text(stmt, index, wartosc.c_str(), -1, SQLITE_TRANSIENT);
+        sprawdzBlad(rc, "Bindowanie parametrów");
+    }
 }

@@ -1,157 +1,71 @@
-// services/class_service.cpp
-#include "class_service.h"
-#include <stdexcept>
+#include "uslugi_zajec.h"
 
-ClassService::ClassService(ClassDAO& classDao, MembershipService& membershipService)
-    : classDao(classDao), membershipService(membershipService) {
+UslugiZajec::UslugiZajec(ZajeciaDAO& zajeciaDAO, UslugiKarnetu& uslugiKarnetu)
+    : zajeciaDAO(zajeciaDAO), uslugiKarnetu(uslugiKarnetu) {
 }
 
-std::vector<GymClass> ClassService::getAllClasses() {
-    return classDao.getAllClasses();
+std::vector<Zajecia> UslugiZajec::pobierzWszystkieZajecia() {
+    return zajeciaDAO.pobierzWszystkieZajecia();
 }
 
-std::vector<GymClass> ClassService::getUpcomingClasses() {
-    return classDao.getUpcomingClasses();
+std::unique_ptr<Zajecia> UslugiZajec::pobierzZajeciaPoId(int id) {
+    return zajeciaDAO.pobierzZajeciaPoId(id);
 }
 
-std::unique_ptr<GymClass> ClassService::getClassById(int id) {
-    return classDao.getClassById(id);
+int UslugiZajec::dodajZajecia(const Zajecia& zajecia) {
+    return zajeciaDAO.dodajZajecia(zajecia);
 }
 
-int ClassService::addClass(const GymClass& gymClass) {
-    // Walidacja danych zajêæ
-    if (gymClass.getName().empty()) {
-        throw std::invalid_argument("Nazwa zajêæ nie mo¿e byæ pusta");
-    }
-
-    if (gymClass.getTrainer().empty()) {
-        throw std::invalid_argument("Nazwa trenera nie mo¿e byæ pusta");
-    }
-
-    if (gymClass.getMaxParticipants() <= 0) {
-        throw std::invalid_argument("Maksymalna liczba uczestników musi byæ dodatnia");
-    }
-
-    if (gymClass.getDate().empty() || gymClass.getTime().empty()) {
-        throw std::invalid_argument("Data i czas zajêæ nie mog¹ byæ puste");
-    }
-
-    if (gymClass.getDuration() <= 0) {
-        throw std::invalid_argument("Czas trwania zajêæ musi byæ dodatni");
-    }
-
-    return classDao.addClass(gymClass);
+bool UslugiZajec::aktualizujZajecia(const Zajecia& zajecia) {
+    return zajeciaDAO.aktualizujZajecia(zajecia);
 }
 
-bool ClassService::updateClass(const GymClass& gymClass) {
-    // Walidacja podobna jak przy dodawaniu
-    if (gymClass.getName().empty()) {
-        throw std::invalid_argument("Nazwa zajêæ nie mo¿e byæ pusta");
-    }
-
-    if (gymClass.getTrainer().empty()) {
-        throw std::invalid_argument("Nazwa trenera nie mo¿e byæ pusta");
-    }
-
-    if (gymClass.getMaxParticipants() <= 0) {
-        throw std::invalid_argument("Maksymalna liczba uczestników musi byæ dodatnia");
-    }
-
-    if (gymClass.getDate().empty() || gymClass.getTime().empty()) {
-        throw std::invalid_argument("Data i czas zajêæ nie mog¹ byæ puste");
-    }
-
-    if (gymClass.getDuration() <= 0) {
-        throw std::invalid_argument("Czas trwania zajêæ musi byæ dodatni");
-    }
-
-    return classDao.updateClass(gymClass);
+bool UslugiZajec::usunZajecia(int id) {
+    return zajeciaDAO.usunZajecia(id);
 }
 
-bool ClassService::removeClass(int id) {
-    return classDao.deleteClass(id);
+std::vector<Rezerwacja> UslugiZajec::pobierzWszystkieRezerwacje() {
+    return zajeciaDAO.pobierzWszystkieRezerwacje();
 }
 
-std::vector<Reservation> ClassService::getAllReservations() {
-    return classDao.getAllReservations();
+std::vector<Rezerwacja> UslugiZajec::pobierzRezerwacjeKlienta(int idKlienta) {
+    return zajeciaDAO.pobierzRezerwacjeKlienta(idKlienta);
 }
 
-std::vector<Reservation> ClassService::getReservationsByClientId(int clientId) {
-    return classDao.getReservationsByClientId(clientId);
+std::vector<Rezerwacja> UslugiZajec::pobierzRezerwacjeZajec(int idZajec) {
+    return zajeciaDAO.pobierzRezerwacjeZajec(idZajec);
 }
 
-std::vector<Reservation> ClassService::getReservationsByClassId(int classId) {
-    return classDao.getReservationsByClassId(classId);
+int UslugiZajec::dodajRezerwacje(const Rezerwacja& rezerwacja) {
+    return zajeciaDAO.dodajRezerwacje(rezerwacja);
 }
 
-std::unique_ptr<Reservation> ClassService::getReservationById(int id) {
-    return classDao.getReservationById(id);
-}
+bool UslugiZajec::anulujRezerwacje(int idRezerwacji) {
+    auto rezerwacja = std::find_if(
+        pobierzWszystkieRezerwacje().begin(),
+        pobierzWszystkieRezerwacje().end(),
+        [idRezerwacji](const Rezerwacja& r) { return r.pobierzId() == idRezerwacji; }
+    );
 
-int ClassService::addReservation(const Reservation& reservation) {
-    // Walidacja rezerwacji
-    if (reservation.getClientId() <= 0) {
-        throw std::invalid_argument("Nieprawid³owy identyfikator klienta");
+    if (rezerwacja != pobierzWszystkieRezerwacje().end()) {
+        Rezerwacja aktualizowanaRezerwacja = *rezerwacja;
+        aktualizowanaRezerwacja.ustawStatus("anulowana");
+        return zajeciaDAO.aktualizujRezerwacje(aktualizowanaRezerwacja);
     }
 
-    if (reservation.getClassId() <= 0) {
-        throw std::invalid_argument("Nieprawid³owy identyfikator zajêæ");
-    }
-
-    // Sprawdzenie, czy klient ma aktywny karnet
-    if (!isClientEligibleForClass(reservation.getClientId(), reservation.getClassId())) {
-        throw std::invalid_argument("Klient nie ma aktywnego karnetu");
-    }
-
-    // Sprawdzenie dostêpnoœci miejsc
-    if (getAvailableSpotsForClass(reservation.getClassId()) <= 0) {
-        throw std::invalid_argument("Brak dostêpnych miejsc na zajêciach");
-    }
-
-    return classDao.addReservation(reservation);
+    return false;
 }
 
-bool ClassService::updateReservation(const Reservation& reservation) {
-    return classDao.updateReservation(reservation);
+int UslugiZajec::pobierzDostepneMiejscaZajec(int idZajec) {
+    auto zajecia = pobierzZajeciaPoId(idZajec);
+    if (!zajecia) return 0;
+
+    int maksUczestnikow = zajecia->pobierzMaksUczestnikow();
+    int zajeteMiejsca = zajeciaDAO.policzRezerwacjeZajec(idZajec);
+
+    return maksUczestnikow - zajeteMiejsca;
 }
 
-bool ClassService::removeReservation(int id) {
-    return classDao.deleteReservation(id);
-}
-
-bool ClassService::cancelReservation(int id) {
-    auto reservation = classDao.getReservationById(id);
-
-    if (!reservation) {
-        return false;
-    }
-
-    reservation->setStatus("cancelled");
-    return classDao.updateReservation(*reservation);
-}
-
-int ClassService::getAvailableSpotsForClass(int classId) {
-    auto gymClass = classDao.getClassById(classId);
-
-    if (!gymClass) {
-        return 0;
-    }
-
-    int maxParticipants = gymClass->getMaxParticipants();
-    int currentReservations = classDao.getReservationCountForClass(classId);
-
-    return maxParticipants - currentReservations;
-}
-
-bool ClassService::isClientEligibleForClass(int clientId, int classId) {
-    // Sprawdzenie, czy klient ma aktywny karnet
-    auto membership = membershipService.getActiveMembershipForClient(clientId);
-
-    if (!membership || !membership->isValid()) {
-        return false;
-    }
-
-    // Tutaj mo¿na dodaæ dodatkowe warunki, np. czy klient nie ma ju¿ rezerwacji na te zajêcia
-
-    return true;
+bool UslugiZajec::czyKlientUprawniony(int idKlienta, int idZajec) {
+    return uslugiKarnetu.czyKlientMaAktywnyKarnet(idKlienta);
 }

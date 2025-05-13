@@ -1,4 +1,3 @@
-// models/klient.h
 #ifndef KLIENT_H
 #define KLIENT_H
 
@@ -15,7 +14,6 @@ public:
         const std::string& dataUrodzenia, const std::string& dataRejestracji,
         const std::string& uwagi);
 
-    // Gettery
     int pobierzId() const;
     std::string pobierzImie() const;
     std::string pobierzNazwisko() const;
@@ -26,7 +24,6 @@ public:
     std::string pobierzUwagi() const;
     std::string pobierzPelneNazwisko() const;
 
-    // Settery
     void ustawId(int id);
     void ustawImie(const std::string& imie);
     void ustawNazwisko(const std::string& nazwisko);
@@ -36,7 +33,6 @@ public:
     void ustawDateRejestracji(const std::string& dataRejestracji);
     void ustawUwagi(const std::string& uwagi);
 
-    // Metoda pomocnicza - zwraca aktualną datę w formacie RRRR-MM-DD
     static std::string pobierzAktualnaDate();
 
 private:
@@ -50,4 +46,4 @@ private:
     std::string uwagi;
 };
 
-#endif // KLIENT_H
+#endif 

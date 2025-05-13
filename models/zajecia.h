@@ -1,4 +1,3 @@
-// models/gym_class.h (przemianowany na models/zajecia.h)
 #ifndef ZAJECIA_H
 #define ZAJECIA_H
 
@@ -12,7 +11,6 @@ public:
         int maksUczestnikow, const std::string& data, const std::string& czas,
         int czasTrwania, const std::string& opis);
 
-    // Gettery
     int pobierzId() const;
     std::string pobierzNazwe() const;
     std::string pobierzTrenera() const;
@@ -22,7 +20,6 @@ public:
     int pobierzCzasTrwania() const;
     std::string pobierzOpis() const;
 
-    // Settery
     void ustawId(int id);
     void ustawNazwe(const std::string& nazwa);
     void ustawTrenera(const std::string& trener);
@@ -43,4 +40,4 @@ private:
     std::string opis;
 };
 
-#endif // ZAJECIA_H
+#endif 

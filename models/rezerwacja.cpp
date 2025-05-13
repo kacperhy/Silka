@@ -1,4 +1,3 @@
-// models/reservation.cpp (przemianowany na models/rezerwacja.cpp)
 #define _CRT_SECURE_NO_WARNINGS
 #include "rezerwacja.h"
 

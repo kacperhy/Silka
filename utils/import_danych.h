@@ -1,4 +1,3 @@
-// utils/import_danych.h
 #ifndef IMPORT_DANYCH_H
 #define IMPORT_DANYCH_H
 
@@ -24,17 +23,14 @@ class ImportDanych {
 public:
     ImportDanych(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKarnetu, UslugiZajec& uslugiZajec);
 
-    // Metody importu plików CSV
     std::vector<Klient> importujKlientowZCSV(const std::string& sciezkaPliku);
     std::vector<Karnet> importujKarnetyZCSV(const std::string& sciezkaPliku);
     std::vector<Zajecia> importujZajeciaZCSV(const std::string& sciezkaPliku);
 
-    // Metody importu plików JSON
     std::vector<Klient> importujKlientowZJSON(const std::string& sciezkaPliku);
     std::vector<Karnet> importujKarnetyZJSON(const std::string& sciezkaPliku);
     std::vector<Zajecia> importujZajeciaZJSON(const std::string& sciezkaPliku);
 
-    // Metody do zapisywania zaimportowanych danych do bazy
     void zapiszZaimportowanychKlientow(const std::vector<Klient>& klienci);
     void zapiszZaimportowaneKarnety(const std::vector<Karnet>& karnety);
     void zapiszZaimportowaneZajecia(const std::vector<Zajecia>& zajecia);
@@ -44,14 +40,12 @@ private:
     UslugiKarnetu& uslugiKarnetu;
     UslugiZajec& uslugiZajec;
 
-    // Metody pomocnicze do parsowania CSV
     std::vector<std::vector<std::string>> analizujCSV(const std::string& sciezkaPliku, char separator = ',');
     Klient analizujWierszKlienta(const std::vector<std::string>& wiersz);
     Karnet analizujWierszKarnetu(const std::vector<std::string>& wiersz);
     Zajecia analizujWierszZajec(const std::vector<std::string>& wiersz);
 
-    // Metody pomocnicze do parsowania JSON
     std::string wczytajPlikJSON(const std::string& sciezkaPliku);
 };
 
-#endif // IMPORT_DANYCH_H
+#endif
