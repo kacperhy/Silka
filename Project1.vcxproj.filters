@@ -60,6 +60,12 @@
     <ClCompile Include="database\dao\karnet_dao.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="utils\historia_zmian.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\system_config.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils\eksport_danych.h">
@@ -102,6 +108,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="database\dao\karnet_dao.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\historia_zmian.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="config\system_config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

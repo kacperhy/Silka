@@ -144,9 +144,12 @@
     <ClCompile Include="services\uslugi_raportow.cpp" />
     <ClCompile Include="tests\main.cpp" />
     <ClCompile Include="utils\eksport_danych.cpp" />
+    <ClCompile Include="utils\historia_zmian.cpp" />
     <ClCompile Include="utils\import_danych.cpp" />
+    <ClCompile Include="utils\system_config.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="config\system_config.h" />
     <ClInclude Include="database\dao\zajecia_dao.h" />
     <ClInclude Include="database\dao\klient_dao.h" />
     <ClInclude Include="database\dao\karnet_dao.h" />
@@ -160,6 +163,7 @@
     <ClInclude Include="services\uslugi_karnetu.h" />
     <ClInclude Include="services\uslugi_raportow.h" />
     <ClInclude Include="utils\eksport_danych.h" />
+    <ClInclude Include="utils\historia_zmian.h" />
     <ClInclude Include="utils\import_danych.h" />
   </ItemGroup>
   <ItemGroup>

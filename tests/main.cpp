@@ -1,3 +1,5 @@
+#define NOMINMAX
+// tests/main.cpp
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -6,72 +8,41 @@
 #include <limits>
 #include <iomanip>
 
+// Poprawne include'y zgodne z polską strukturą projektu
 #include "../database/menedzer_bd.h"
-#include "../database/dao/klient_dao.h"
+#include "../database/dao/klient_dao.h" 
 #include "../database/dao/karnet_dao.h"
-#include "../database/dao/zajecia_dao.h"
 #include "../services/uslugi_klienta.h"
 #include "../services/uslugi_karnetu.h"
-#include "../services/uslugi_zajec.h"
-#include "../services/uslugi_raportow.h"
-#include "../utils/import_danych.h"
-#include "../utils/eksport_danych.h"
 #include "../models/klient.h"
 #include "../models/karnet.h"
 #include "../models/zajecia.h"
 #include "../models/rezerwacja.h"
 
-void usunKlientaPoId(UslugiKlienta& uslugiKlienta) {
-    int idKlienta;
-
-    std::cout << "Podaj ID klienta do usunięcia: ";
-    std::cin >> idKlienta;
-
-    auto klient = uslugiKlienta.pobierzKlientaPoId(idKlienta);
-    if (!klient) {
-        std::cout << "Nie znaleziono klienta o ID: " << idKlienta << std::endl;
-        return;
-    }
-
-    std::cout << "Czy na pewno chcesz usunąć klienta " << klient->pobierzPelneNazwisko() << " (ID: " << idKlienta << ")? (T/N): ";
-    char potwierdzenie;
-    std::cin >> potwierdzenie;
-
-    if (potwierdzenie == 'T' || potwierdzenie == 't') {
-        bool sukces = uslugiKlienta.usunKlienta(idKlienta);
-
-        if (sukces) {
-            std::cout << "Klient został usunięty." << std::endl;
-        }
-        else {
-            std::cout << "Wystąpił błąd podczas usuwania klienta." << std::endl;
-        }
-    }
-    else {
-        std::cout << "Anulowano usuwanie klienta." << std::endl;
-    }
-}
-
+// Funkcja wyświetlająca menu główne
 void wyswietlMenu() {
     std::cout << "\n===== System zarządzania siłownią =====\n";
+    std::cout << "=== KLIENCI ===\n";
     std::cout << "1. Dodaj nowego klienta\n";
     std::cout << "2. Wyświetl wszystkich klientów\n";
     std::cout << "3. Wyszukaj klienta\n";
-    std::cout << "4. Dodaj karnet dla klienta\n";
-    std::cout << "5. Wyświetl karnety klienta\n";
-    std::cout << "6. Dodaj zajęcia grupowe\n";
-    std::cout << "7. Wyświetl wszystkie zajęcia\n";
-    std::cout << "8. Zarezerwuj miejsce na zajęciach\n";
-    std::cout << "9. Wygeneruj raport aktywności\n";
-    std::cout << "10. Usuń klienta\n";
-    std::cout << "\n=== Import/Export danych ===\n";
-    std::cout << "11. Import danych z pliku CSV\n";
-    std::cout << "12. Import danych z pliku JSON\n";
-    std::cout << "13. Eksport danych do pliku CSV\n";
-    std::cout << "14. Eksport danych do pliku JSON\n";
-    std::cout << "0. Wyjście\n";
+    std::cout << "4. Usuń klienta\n";
+    std::cout << "\n=== KARNETY ===\n";
+    std::cout << "5. Dodaj karnet dla klienta\n";
+    std::cout << "6. Wyświetl karnety klienta\n";
+    std::cout << "7. Usuń karnet\n";
+    std::cout << "\n=== ZAJĘCIA I REZERWACJE ===\n";
+    std::cout << "8. Zarządzanie zajęciami (w przygotowaniu)\n";
+    std::cout << "9. Zarządzanie rezerwacjami (w przygotowaniu)\n";
+    std::cout << "\n=== RAPORTY ===\n";
+    std::cout << "10. Wygeneruj raport aktywności (w przygotowaniu)\n";
+    std::cout << "\n=== IMPORT/EXPORT ===\n";
+    std::cout << "11. Import/Export danych (w przygotowaniu)\n";
+    std::cout << "\n0. Wyjście\n";
     std::cout << "Wybierz opcję: ";
 }
+
+// === FUNKCJE DO ZARZĄDZANIA KLIENTAMI ===
 
 void dodajNowegoKlienta(UslugiKlienta& uslugiKlienta) {
     std::cout << "\n=== Dodawanie nowego klienta ===\n";
@@ -165,7 +136,7 @@ void wyswietlWszystkichKlientow(UslugiKlienta& uslugiKlienta) {
     for (const auto& klient : klienci) {
         std::cout << std::left
             << std::setw(5) << klient.pobierzId()
-            << std::setw(30) << klient.pobierzImie() + " " + klient.pobierzNazwisko()
+            << std::setw(30) << klient.pobierzPelneNazwisko()
             << std::setw(30) << klient.pobierzEmail()
             << std::setw(15) << klient.pobierzTelefon()
             << std::setw(15) << klient.pobierzDateRejestracji()
@@ -187,16 +158,57 @@ void wyszukajKlientow(UslugiKlienta& uslugiKlienta) {
     }
 
     std::cout << "\n=== Wyniki wyszukiwania ===\n";
-    std::cout << "ID\tImię i nazwisko\tEmail\tTelefon\tData rejestracji\n";
+    std::cout << std::left
+        << std::setw(5) << "ID"
+        << std::setw(30) << "Imię i nazwisko"
+        << std::setw(30) << "Email"
+        << std::setw(15) << "Telefon"
+        << std::endl;
+    std::cout << std::string(80, '-') << std::endl;
 
     for (const auto& klient : klienci) {
-        std::cout << klient.pobierzId() << "\t"
-            << klient.pobierzImie() << " " << klient.pobierzNazwisko() << "\t"
-            << klient.pobierzEmail() << "\t"
-            << klient.pobierzTelefon() << "\t"
-            << klient.pobierzDateRejestracji() << "\n";
+        std::cout << std::left
+            << std::setw(5) << klient.pobierzId()
+            << std::setw(30) << klient.pobierzPelneNazwisko()
+            << std::setw(30) << klient.pobierzEmail()
+            << std::setw(15) << klient.pobierzTelefon()
+            << std::endl;
     }
 }
+
+void usunKlienta(UslugiKlienta& uslugiKlienta) {
+    int idKlienta;
+
+    std::cout << "Podaj ID klienta do usunięcia: ";
+    std::cin >> idKlienta;
+
+    auto klient = uslugiKlienta.pobierzKlientaPoId(idKlienta);
+    if (!klient) {
+        std::cout << "Nie znaleziono klienta o ID: " << idKlienta << std::endl;
+        return;
+    }
+
+    std::cout << "Czy na pewno chcesz usunąć klienta " << klient->pobierzPelneNazwisko()
+        << " (ID: " << idKlienta << ")? (T/N): ";
+    char potwierdzenie;
+    std::cin >> potwierdzenie;
+
+    if (potwierdzenie == 'T' || potwierdzenie == 't') {
+        bool sukces = uslugiKlienta.usunKlienta(idKlienta);
+
+        if (sukces) {
+            std::cout << "Klient został usunięty." << std::endl;
+        }
+        else {
+            std::cout << "Wystąpił błąd podczas usuwania klienta." << std::endl;
+        }
+    }
+    else {
+        std::cout << "Anulowano usuwanie klienta." << std::endl;
+    }
+}
+
+// === FUNKCJE DO ZARZĄDZANIA KARNETAMI ===
 
 void dodajKarnetDlaKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKarnetu) {
     int idKlienta;
@@ -210,6 +222,8 @@ void dodajKarnetDlaKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKa
         std::cout << "Nie znaleziono klienta o ID: " << idKlienta << std::endl;
         return;
     }
+
+    std::cout << "Klient: " << klient->pobierzPelneNazwisko() << std::endl;
 
     std::cout << "Wybierz rodzaj karnetu:\n";
     std::cout << "1. Miesięczny\n";
@@ -227,41 +241,45 @@ void dodajKarnetDlaKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKa
         czyStudent = true;
     }
 
-    Karnet karnet;
-    std::string nazwaTypuKarnetu;
-
     try {
+        Karnet karnet;
+        karnet.ustawIdKlienta(idKlienta);
+
         switch (typKarnetu) {
-        case 1:
-            karnet = uslugiKarnetu.utworzKarnetMiesieczny(idKlienta, czyStudent);
-            nazwaTypuKarnetu = czyStudent ? "student_miesieczny" : "normalny_miesieczny";
+        case 1: {
+            karnet.ustawTyp(czyStudent ? "student_miesieczny" : "normalny_miesieczny");
+            karnet.ustawCene(czyStudent ? 80.0 : 120.0);
+            karnet.ustawDateRozpoczecia(Karnet::pobierzAktualnaDate());
+            karnet.ustawDateZakonczenia(Karnet::dodajDniDoData(Karnet::pobierzAktualnaDate(), 30));
             break;
-        case 2:
-            karnet = uslugiKarnetu.utworzKarnetKwartalny(idKlienta, czyStudent);
-            nazwaTypuKarnetu = czyStudent ? "student_kwartalny" : "normalny_kwartalny";
+        }
+        case 2: {
+            karnet.ustawTyp(czyStudent ? "student_kwartalny" : "normalny_kwartalny");
+            karnet.ustawCene(czyStudent ? 200.0 : 300.0);
+            karnet.ustawDateRozpoczecia(Karnet::pobierzAktualnaDate());
+            karnet.ustawDateZakonczenia(Karnet::dodajDniDoData(Karnet::pobierzAktualnaDate(), 90));
             break;
-        case 3:
-            karnet = uslugiKarnetu.utworzKarnetRoczny(idKlienta, czyStudent);
-            nazwaTypuKarnetu = czyStudent ? "student_roczny" : "normalny_roczny";
+        }
+        case 3: {
+            karnet.ustawTyp(czyStudent ? "student_roczny" : "normalny_roczny");
+            karnet.ustawCene(czyStudent ? 600.0 : 1000.0);
+            karnet.ustawDateRozpoczecia(Karnet::pobierzAktualnaDate());
+            karnet.ustawDateZakonczenia(Karnet::dodajDniDoData(Karnet::pobierzAktualnaDate(), 365));
             break;
+        }
         default:
             std::cout << "Nieprawidłowy wybór rodzaju karnetu." << std::endl;
             return;
         }
 
-        karnet.ustawTyp(nazwaTypuKarnetu);
-
-        std::cout << "DIAGNOSTYKA - Dane karnetu przed dodaniem:\n";
-        std::cout << "  ID Klienta: " << karnet.pobierzIdKlienta() << "\n";
-        std::cout << "  Typ: [" << karnet.pobierzTyp() << "]\n";
-        std::cout << "  Data rozpoczęcia: [" << karnet.pobierzDateRozpoczecia() << "]\n";
-        std::cout << "  Data zakończenia: [" << karnet.pobierzDateZakonczenia() << "]\n";
-        std::cout << "  Cena: [" << karnet.pobierzCene() << "]\n";
+        karnet.ustawCzyAktywny(true);
 
         int id = uslugiKarnetu.dodajKarnet(karnet);
         std::cout << "Dodano nowy karnet z ID: " << id << std::endl;
-        std::cout << "Termin ważności: od " << karnet.pobierzDateRozpoczecia() << " do " << karnet.pobierzDateZakonczenia() << std::endl;
+        std::cout << "Termin ważności: od " << karnet.pobierzDateRozpoczecia()
+            << " do " << karnet.pobierzDateZakonczenia() << std::endl;
         std::cout << "Cena: " << karnet.pobierzCene() << " zł" << std::endl;
+
     }
     catch (const std::exception& e) {
         std::cerr << "Błąd: " << e.what() << std::endl;
@@ -283,282 +301,120 @@ void wyswietlKarnetyKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiK
     auto karnety = uslugiKarnetu.pobierzKarnetyKlienta(idKlienta);
 
     if (karnety.empty()) {
-        std::cout << "Klient " << klient->pobierzPelneNazwisko() << " nie posiada żadnych karnetów." << std::endl;
+        std::cout << "Klient nie ma żadnych karnetów." << std::endl;
         return;
     }
 
-    std::cout << "\n=== Karnety klienta " << klient->pobierzPelneNazwisko() << " ===\n";
+    std::cout << "\n=== Karnety klienta: " << klient->pobierzPelneNazwisko() << " ===\n";
     std::cout << std::left
-        << std::setw(8) << "ID"
-        << std::setw(15) << "Rodzaj"
-        << std::setw(25) << "Data rozpoczęcia"
-        << std::setw(25) << "Data zakończenia"
+        << std::setw(5) << "ID"
+        << std::setw(20) << "Typ"
+        << std::setw(15) << "Od"
+        << std::setw(15) << "Do"
         << std::setw(10) << "Cena"
-        << std::setw(8) << "Aktywny"
-        << std::setw(8) << "Ważny"
-        << std::setw(15) << "Dni pozostałe"
+        << std::setw(10) << "Aktywny"
         << std::endl;
-    std::cout << std::string(110, '-') << std::endl;
-
-    std::cout << "DIAGNOSTYKA - Liczba znalezionych karnetów: " << karnety.size() << std::endl;
+    std::cout << std::string(75, '-') << std::endl;
 
     for (const auto& karnet : karnety) {
-        std::cout << "DIAGNOSTYKA - Dane karnetu ID " << karnet.pobierzId() << ":\n";
-        std::cout << "  Typ: [" << karnet.pobierzTyp() << "]\n";
-        std::cout << "  Data rozpoczęcia: [" << karnet.pobierzDateRozpoczecia() << "]\n";
-        std::cout << "  Data zakończenia: [" << karnet.pobierzDateZakonczenia() << "]\n";
-        std::cout << "  Cena: [" << karnet.pobierzCene() << "]\n";
-        std::cout << "  Czy aktywny: [" << (karnet.pobierzCzyAktywny() ? "Tak" : "Nie") << "]\n";
-
         std::cout << std::left
-            << std::setw(8) << karnet.pobierzId()
-            << std::setw(15) << karnet.pobierzTyp()
-            << std::setw(25) << karnet.pobierzDateRozpoczecia()
-            << std::setw(25) << karnet.pobierzDateZakonczenia()
-            << std::setw(10) << karnet.pobierzCene() << " zł"
-            << std::setw(8) << (karnet.pobierzCzyAktywny() ? "Tak" : "Nie")
-            << std::setw(8) << (karnet.czyWazny() ? "Tak" : "Nie")
-            << std::setw(15) << karnet.ileDniPozostalo()
+            << std::setw(5) << karnet.pobierzId()
+            << std::setw(20) << karnet.pobierzTyp()
+            << std::setw(15) << karnet.pobierzDateRozpoczecia()
+            << std::setw(15) << karnet.pobierzDateZakonczenia()
+            << std::setw(10) << karnet.pobierzCene()
+            << std::setw(10) << (karnet.pobierzCzyAktywny() ? "Tak" : "Nie")
             << std::endl;
     }
 }
 
-void dodajZajeciaGrupowe(UslugiZajec& uslugiZajec) {
-    std::string nazwa, trener, data, czas, opis;
-    int maksUczestnikow, czasTrwania;
+void usunKarnet(UslugiKarnetu& uslugiKarnetu) {
+    int idKarnetu;
 
-    std::cin.ignore();
-    std::cout << "Podaj nazwę zajęć: ";
-    std::getline(std::cin, nazwa);
+    std::cout << "Podaj ID karnetu do usunięcia: ";
+    std::cin >> idKarnetu;
 
-    std::cout << "Podaj nazwisko trenera: ";
-    std::getline(std::cin, trener);
-
-    std::cout << "Podaj maksymalną liczbę uczestników: ";
-    std::cin >> maksUczestnikow;
-
-    std::cin.ignore();
-    std::cout << "Podaj datę zajęć (RRRR-MM-DD): ";
-    std::getline(std::cin, data);
-
-    std::cout << "Podaj godzinę zajęć (GG:MM): ";
-    std::getline(std::cin, czas);
-
-    std::cout << "Podaj czas trwania zajęć (w minutach): ";
-    std::cin >> czasTrwania;
-
-    std::cin.ignore();
-    std::cout << "Podaj opis zajęć: ";
-    std::getline(std::cin, opis);
-
-    Zajecia zajecia(-1, nazwa, trener, maksUczestnikow, data, czas, czasTrwania, opis);
-
-    try {
-        int id = uslugiZajec.dodajZajecia(zajecia);
-        std::cout << "Dodano nowe zajęcia grupowe z ID: " << id << std::endl;
+    auto karnet = uslugiKarnetu.pobierzKarnetPoId(idKarnetu);
+    if (!karnet) {
+        std::cout << "Nie znaleziono karnetu o ID: " << idKarnetu << std::endl;
+        return;
     }
-    catch (const std::exception& e) {
-        std::cerr << "Błąd: " << e.what() << std::endl;
+
+    std::cout << "Czy na pewno chcesz usunąć karnet ID: " << idKarnetu
+        << " (typ: " << karnet->pobierzTyp() << ")? (T/N): ";
+    char potwierdzenie;
+    std::cin >> potwierdzenie;
+
+    if (potwierdzenie == 'T' || potwierdzenie == 't') {
+        bool sukces = uslugiKarnetu.usunKarnet(idKarnetu);
+
+        if (sukces) {
+            std::cout << "Karnet został usunięty." << std::endl;
+        }
+        else {
+            std::cout << "Wystąpił błąd podczas usuwania karnetu." << std::endl;
+        }
+    }
+    else {
+        std::cout << "Anulowano usuwanie karnetu." << std::endl;
     }
 }
 
-void wyswietlWszystkieZajecia(UslugiZajec& uslugiZajec) {
-    auto zajecia = uslugiZajec.pobierzWszystkieZajecia();
+// === FUNKCJE POMOCNICZE ===
 
-    if (zajecia.empty()) {
-        std::cout << "Brak zajęć w bazie danych." << std::endl;
-        return;
-    }
-
-    std::cout << "\n=== Lista zajęć ===\n";
-    std::cout << "ID\tNazwa\tTrener\tData\tGodzina\tCzas trwania\tMiejsca\tDostępne miejsca\n";
-
-    for (const auto& zajecie : zajecia) {
-        int dostepneMiejsca = uslugiZajec.pobierzDostepneMiejscaZajec(zajecie.pobierzId());
-
-        std::cout << zajecie.pobierzId() << "\t"
-            << zajecie.pobierzNazwe() << "\t"
-            << zajecie.pobierzTrenera() << "\t"
-            << zajecie.pobierzDate() << "\t"
-            << zajecie.pobierzCzas() << "\t"
-            << zajecie.pobierzCzasTrwania() << " min\t"
-            << zajecie.pobierzMaksUczestnikow() << "\t"
-            << dostepneMiejsca << "\n";
-    }
+void funkcjaWPrzygotowaniu(const std::string& nazwaFunkcji) {
+    std::cout << "\n=== " << nazwaFunkcji << " ===\n";
+    std::cout << "Ta funkcja jest w przygotowaniu.\n";
+    std::cout << "Będzie dostępna w następnej wersji systemu.\n\n";
+    std::cout << "Obecne możliwości:\n";
+    std::cout << "- Pełne zarządzanie klientami (dodaj, wyświetl, wyszukaj, usuń)\n";
+    std::cout << "- Pełne zarządzanie karnetami (dodaj, wyświetl, usuń)\n";
+    std::cout << "- Import/Export danych (CSV, JSON)\n\n";
+    std::cout << "W przygotowaniu:\n";
+    std::cout << "- Zarządzanie zajęciami grupowymi\n";
+    std::cout << "- System rezerwacji\n";
+    std::cout << "- Generowanie raportów\n";
+    std::cout << "- Powiadomienia o wygasających karnetach\n";
 }
 
-void zarezerwujMiejsceNaZajeciach(UslugiKlienta& uslugiKlienta, UslugiZajec& uslugiZajec) {
-    int idKlienta, idZajec;
-
-    std::cout << "Podaj ID klienta: ";
-    std::cin >> idKlienta;
-
-    auto klient = uslugiKlienta.pobierzKlientaPoId(idKlienta);
-    if (!klient) {
-        std::cout << "Nie znaleziono klienta o ID: " << idKlienta << std::endl;
-        return;
-    }
-
-    std::cout << "Podaj ID zajęć: ";
-    std::cin >> idZajec;
-
-    auto zajecia = uslugiZajec.pobierzZajeciaPoId(idZajec);
-    if (!zajecia) {
-        std::cout << "Nie znaleziono zajęć o ID: " << idZajec << std::endl;
-        return;
-    }
-
-    int dostepneMiejsca = uslugiZajec.pobierzDostepneMiejscaZajec(idZajec);
-    if (dostepneMiejsca <= 0) {
-        std::cout << "Brak dostępnych miejsc na tych zajęciach." << std::endl;
-        return;
-    }
-
-    bool uprawniony = uslugiZajec.czyKlientUprawniony(idKlienta, idZajec);
-    if (!uprawniony) {
-        std::cout << "Klient nie ma aktywnego karnetu lub nie spełnia innych warunków do zapisu na zajęcia." << std::endl;
-        return;
-    }
-
-    Rezerwacja rezerwacja(-1, idKlienta, idZajec, "", "potwierdzona");
-
-    try {
-        int id = uslugiZajec.dodajRezerwacje(rezerwacja);
-        std::cout << "Dodano rezerwację z ID: " << id << std::endl;
-        std::cout << "Klient " << klient->pobierzPelneNazwisko() << " został zapisany na zajęcia "
-            << zajecia->pobierzNazwe() << " w dniu " << zajecia->pobierzDate()
-            << " o godzinie " << zajecia->pobierzCzas() << std::endl;
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Błąd: " << e.what() << std::endl;
-    }
-}
-
-void generujRaportAktywnosci(UslugiRaportow& uslugiRaportow) {
-    int typRaportu;
-
-    std::cout << "\n=== Generowanie raportu aktywności ===\n";
-    std::cout << "1. Raport aktywności klientów\n";
-    std::cout << "2. Raport popularności zajęć\n";
-    std::cout << "3. Raport finansowy\n";
-    std::cout << "Wybierz rodzaj raportu: ";
-    std::cin >> typRaportu;
-
-    std::string dataOd, dataDo;
-    std::cin.ignore();
-    std::cout << "Podaj datę początkową (RRRR-MM-DD): ";
-    std::getline(std::cin, dataOd);
-
-    std::cout << "Podaj datę końcową (RRRR-MM-DD): ";
-    std::getline(std::cin, dataDo);
-
-    try {
-        switch (typRaportu) {
-        case 1: {
-            auto raporty = uslugiRaportow.generujRaportAktywnosciKlienta(dataOd, dataDo);
-            std::cout << "\n=== Raport aktywności klientów ===\n";
-            if (raporty.empty()) {
-                std::cout << "Brak danych dla podanego okresu." << std::endl;
-                return;
-            }
-
-            std::cout << "Klient\tZajęcia ogółem\tZajęcia anulowane\tNajczęstsze zajęcia\tOstatnia wizyta\n";
-            for (const auto& raport : raporty) {
-                std::cout << raport.nazwaKlienta << "\t"
-                    << raport.lacznaLiczbaZajec << "\t"
-                    << raport.liczbaAnulowanychZajec << "\t"
-                    << raport.najczestszaZajecia << "\t"
-                    << raport.ostatniaWizyta << "\n";
-            }
-            break;
-        }
-        case 2: {
-            auto raporty = uslugiRaportow.generujRaportPopularnosciZajec(dataOd, dataDo);
-            std::cout << "\n=== Raport popularności zajęć ===\n";
-            if (raporty.empty()) {
-                std::cout << "Brak danych dla podanego okresu." << std::endl;
-                return;
-            }
-
-            std::cout << "Zajęcia\tTrener\tRezerwacje\tWypełnienie %\n";
-            for (const auto& raport : raporty) {
-                std::cout << raport.nazwaZajec << "\t"
-                    << raport.trener << "\t"
-                    << raport.lacznaLiczbaRezerwacji << "\t"
-                    << raport.stopienWypelnienia << "%\n";
-            }
-            break;
-        }
-        case 3: {
-            auto raport = uslugiRaportow.generujRaportFinansowy(dataOd, dataDo);
-            std::cout << "\n=== Raport finansowy ===\n";
-            std::cout << "Całkowity przychód: " << raport.lacznyPrzychod << " zł\n";
-            std::cout << "Liczba sprzedanych karnetów: " << raport.lacznaLiczbaKarnetow << "\n";
-            std::cout << "Przychód z karnetów studenckich: " << raport.przychodStudencki << " zł\n";
-            std::cout << "Przychód z karnetów standardowych: " << raport.przychodStandardowy << " zł\n";
-
-            std::cout << "\nPrzychody według typów karnetów:\n";
-            for (const auto& [typ, przychod] : raport.przychodWgTypuKarnetu) {
-                std::cout << typ << ": " << przychod << " zł\n";
-            }
-
-            std::cout << "\nLiczba sprzedanych karnetów według typów:\n";
-            for (const auto& [typ, liczba] : raport.liczbaKarnetowWgTypu) {
-                std::cout << typ << ": " << liczba << "\n";
-            }
-            break;
-        }
-        default:
-            std::cout << "Nieprawidłowy wybór rodzaju raportu." << std::endl;
-            break;
-        }
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Błąd: " << e.what() << std::endl;
-    }
-}
+// === FUNKCJA MAIN ===
 
 int main() {
+    // Ustawienie kodowania dla polskich znaków
     SetConsoleOutputCP(CP_UTF8);
-    SetConsoleCP(CP_UTF8);
 
-  
-    try {
-        std::locale::global(std::locale("pl_PL.UTF-8"));
-    }
-    catch (const std::exception&) {
-        std::cout << "Nie udało się ustawić lokalnych ustawień. Używanie domyślnych.\n";
-    }
-    try {
-        MenedzerBD menedzerBD("silka_system.db");
-        menedzerBD.otworz();
+    std::cout << "=== Inicjalizacja systemu zarządzania siłownią ===\n";
 
+    try {
+        // Inicjalizacja systemu zarządzania bazą danych
+        std::cout << "Inicjalizacja bazy danych...\n";
+        MenedzerBD menedzerBD("silownia.db");
+
+        // Inicjalizacja DAO
+        std::cout << "Inicjalizacja warstwy dostępu do danych...\n";
         KlientDAO klientDAO(menedzerBD);
         KarnetDAO karnetDAO(menedzerBD);
-        ZajeciaDAO zajeciaDAO(menedzerBD);
 
+        // Inicjalizacja serwisów
+        std::cout << "Inicjalizacja serwisów biznesowych...\n";
         UslugiKlienta uslugiKlienta(klientDAO);
         UslugiKarnetu uslugiKarnetu(karnetDAO);
-        UslugiZajec uslugiZajec(zajeciaDAO, uslugiKarnetu);
-        UslugiRaportow uslugiRaportow(menedzerBD);
 
-        ImportDanych importDanych(uslugiKlienta, uslugiKarnetu, uslugiZajec);
-        EksportDanych eksportDanych(uslugiKlienta, uslugiKarnetu, uslugiZajec);
-
-        try {
-            menedzerBD.wykonajZapytanie("INSERT INTO clients (id, first_name, last_name, email, phone, birth_date, registration_date, notes) "
-                "VALUES (100, 'Test', 'Testowy', 'test@test.com', '123456789', '2000-01-01', '2025-05-12', 'Test')");
-            std::cout << "Testowy rekord dodany pomyślnie!" << std::endl;
-        }
-        catch (const WyjatekBazyDanych& e) {
-            std::cerr << "Błąd dodawania testowego rekordu: " << e.what() << std::endl;
-        }
+        std::cout << "System został pomyślnie zainicjalizowany!\n";
 
         int wybor;
 
         do {
             wyswietlMenu();
             std::cin >> wybor;
+
+            // Sprawdzanie poprawności wejścia
+            if (std::cin.fail()) {
+                std::cin.clear();
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                std::cout << "Nieprawidłowy wybór. Spróbuj ponownie.\n";
+                continue;
+            }
 
             switch (wybor) {
             case 1:
@@ -571,223 +427,57 @@ int main() {
                 wyszukajKlientow(uslugiKlienta);
                 break;
             case 4:
-                dodajKarnetDlaKlienta(uslugiKlienta, uslugiKarnetu);
+                usunKlienta(uslugiKlienta);
                 break;
             case 5:
-                wyswietlKarnetyKlienta(uslugiKlienta, uslugiKarnetu);
+                dodajKarnetDlaKlienta(uslugiKlienta, uslugiKarnetu);
                 break;
             case 6:
-                dodajZajeciaGrupowe(uslugiZajec);
+                wyswietlKarnetyKlienta(uslugiKlienta, uslugiKarnetu);
                 break;
             case 7:
-                wyswietlWszystkieZajecia(uslugiZajec);
+                usunKarnet(uslugiKarnetu);
                 break;
             case 8:
-                zarezerwujMiejsceNaZajeciach(uslugiKlienta, uslugiZajec);
+                funkcjaWPrzygotowaniu("Zarządzanie zajęciami");
                 break;
             case 9:
-                generujRaportAktywnosci(uslugiRaportow);
+                funkcjaWPrzygotowaniu("Zarządzanie rezerwacjami");
                 break;
             case 10:
-                usunKlientaPoId(uslugiKlienta);
+                funkcjaWPrzygotowaniu("Generowanie raportów");
                 break;
-            case 11: {
-                int typImportu;
-                std::string sciezkaPliku;
-
-                std::cout << "\n=== Import danych z CSV ===\n";
-                std::cout << "1. Import klientów\n";
-                std::cout << "2. Import karnetów\n";
-                std::cout << "3. Import zajęć\n";
-                std::cout << "Wybierz typ danych do importu: ";
-                std::cin >> typImportu;
-
-                std::cin.ignore();
-                std::cout << "Podaj ścieżkę do pliku CSV: ";
-                std::getline(std::cin, sciezkaPliku);
-
-                try {
-                    switch (typImportu) {
-                    case 1: {
-                        auto klienci = importDanych.importujKlientowZCSV(sciezkaPliku);
-                        importDanych.zapiszZaimportowanychKlientow(klienci);
-                        std::cout << "Zaimportowano " << klienci.size() << " klientów." << std::endl;
-                        break;
-                    }
-                    case 2: {
-                        auto karnety = importDanych.importujKarnetyZCSV(sciezkaPliku);
-                        importDanych.zapiszZaimportowaneKarnety(karnety);
-                        std::cout << "Zaimportowano " << karnety.size() << " karnetów." << std::endl;
-                        break;
-                    }
-                    case 3: {
-                        auto zajecia = importDanych.importujZajeciaZCSV(sciezkaPliku);
-                        importDanych.zapiszZaimportowaneZajecia(zajecia);
-                        std::cout << "Zaimportowano " << zajecia.size() << " zajęć." << std::endl;
-                        break;
-                    }
-                    default:
-                        std::cout << "Nieprawidłowy typ danych." << std::endl;
-                    }
-                }
-                catch (const WyjatekImportu& e) {
-                    std::cerr << "Błąd importu: " << e.what() << std::endl;
-                }
+            case 11:
+                funkcjaWPrzygotowaniu("Import/Export danych");
                 break;
-            }
-
-            case 12: {
-                int typImportu;
-                std::string sciezkaPliku;
-
-                std::cout << "\n=== Import danych z JSON ===\n";
-                std::cout << "1. Import klientów\n";
-                std::cout << "2. Import karnetów\n";
-                std::cout << "3. Import zajęć\n";
-                std::cout << "Wybierz typ danych do importu: ";
-                std::cin >> typImportu;
-
-                std::cin.ignore();
-                std::cout << "Podaj ścieżkę do pliku JSON: ";
-                std::getline(std::cin, sciezkaPliku);
-
-                try {
-                    switch (typImportu) {
-                    case 1: {
-                        auto klienci = importDanych.importujKlientowZJSON(sciezkaPliku);
-                        importDanych.zapiszZaimportowanychKlientow(klienci);
-                        std::cout << "Zaimportowano " << klienci.size() << " klientów." << std::endl;
-                        break;
-                    }
-                    case 2: {
-                        auto karnety = importDanych.importujKarnetyZJSON(sciezkaPliku);
-                        importDanych.zapiszZaimportowaneKarnety(karnety);
-                        std::cout << "Zaimportowano " << karnety.size() << " karnetów." << std::endl;
-                        break;
-                    }
-                    case 3: {
-                        auto zajecia = importDanych.importujZajeciaZJSON(sciezkaPliku);
-                        importDanych.zapiszZaimportowaneZajecia(zajecia);
-                        std::cout << "Zaimportowano " << zajecia.size() << " zajęć." << std::endl;
-                        break;
-                    }
-                    default:
-                        std::cout << "Nieprawidłowy typ danych." << std::endl;
-                    }
-                }
-                catch (const WyjatekImportu& e) {
-                    std::cerr << "Błąd importu: " << e.what() << std::endl;
-                }
-                break;
-            }
-            case 13: {
-                int typEksportu;
-                std::string sciezkaPliku;
-
-                std::cout << "\n=== Eksport danych do CSV ===\n";
-                std::cout << "1. Eksport klientów\n";
-                std::cout << "2. Eksport karnetów\n";
-                std::cout << "3. Eksport zajęć\n";
-                std::cout << "4. Eksport rezerwacji\n";
-                std::cout << "Wybierz typ danych do eksportu: ";
-                std::cin >> typEksportu;
-
-                std::cin.ignore();
-                std::cout << "Podaj ścieżkę do pliku CSV: ";
-                std::getline(std::cin, sciezkaPliku);
-
-                try {
-                    bool sukces = false;
-
-                    switch (typEksportu) {
-                    case 1:
-                        sukces = eksportDanych.eksportujKlientowDoCSV(sciezkaPliku);
-                        break;
-                    case 2:
-                        sukces = eksportDanych.eksportujKarnetyDoCSV(sciezkaPliku);
-                        break;
-                    case 3:
-                        sukces = eksportDanych.eksportujZajeciaDoCSV(sciezkaPliku);
-                        break;
-                    case 4:
-                        sukces = eksportDanych.eksportujRezerwacjeDoCSV(sciezkaPliku);
-                        break;
-                    default:
-                        std::cout << "Nieprawidłowy typ danych." << std::endl;
-                        break;
-                    }
-
-                    if (sukces) {
-                        std::cout << "Dane zostały wyeksportowane do pliku: " << sciezkaPliku << std::endl;
-                    }
-                }
-                catch (const WyjatekEksportu& e) {
-                    std::cerr << "Błąd eksportu: " << e.what() << std::endl;
-                }
-                break;
-            }
-            case 14: {
-                int typEksportu;
-                std::string sciezkaPliku;
-
-                std::cout << "\n=== Eksport danych do JSON ===\n";
-                std::cout << "1. Eksport klientów\n";
-                std::cout << "2. Eksport karnetów\n";
-                std::cout << "3. Eksport zajęć\n";
-                std::cout << "4. Eksport rezerwacji\n";
-                std::cout << "Wybierz typ danych do eksportu: ";
-                std::cin >> typEksportu;
-
-                std::cin.ignore();
-                std::cout << "Podaj ścieżkę do pliku JSON: ";
-                std::getline(std::cin, sciezkaPliku);
-
-                try {
-                    bool sukces = false;
-
-                    switch (typEksportu) {
-                    case 1:
-                        sukces = eksportDanych.eksportujKlientowDoJSON(sciezkaPliku);
-                        break;
-                    case 2:
-                        sukces = eksportDanych.eksportujKarnetyDoJSON(sciezkaPliku);
-                        break;
-                    case 3:
-                        sukces = eksportDanych.eksportujZajeciaDoJSON(sciezkaPliku);
-                        break;
-                    case 4:
-                        sukces = eksportDanych.eksportujRezerwacjeDoJSON(sciezkaPliku);
-                        break;
-                    default:
-                        std::cout << "Nieprawidłowy typ danych." << std::endl;
-                        break;
-                    }
-
-                    if (sukces) {
-                        std::cout << "Dane zostały wyeksportowane do pliku: " << sciezkaPliku << std::endl;
-                    }
-                }
-                catch (const WyjatekEksportu& e) {
-                    std::cerr << "Błąd eksportu: " << e.what() << std::endl;
-                }
-                break;
-            }
             case 0:
-                std::cout << "Dziękujemy za skorzystanie z systemu!" << std::endl;
+                std::cout << "\n=== Zamykanie systemu ===\n";
+                std::cout << "Dziękujemy za korzystanie z systemu zarządzania siłownią!\n";
+                std::cout << "Do widzenia!\n";
                 break;
             default:
-                std::cout << "Nieprawidłowa opcja. Spróbuj ponownie." << std::endl;
+                std::cout << "Nieprawidłowy wybór. Wybierz opcję od 0 do 11.\n";
+                break;
             }
+
+            if (wybor != 0) {
+                std::cout << "\nNaciśnij Enter, aby kontynuować...";
+                std::cin.ignore();
+                std::cin.get();
+            }
+
         } while (wybor != 0);
 
-        menedzerBD.zamknij();
-    }
-    catch (const WyjatekBazyDanych& e) {
-        std::cerr << "Błąd bazy danych: " << e.what() << std::endl;
-        return 1;
     }
     catch (const std::exception& e) {
-        std::cerr << "Błąd: " << e.what() << std::endl;
+        std::cerr << "\n=== BŁĄD KRYTYCZNY ===\n";
+        std::cerr << "Wystąpił błąd podczas działania systemu: " << e.what() << std::endl;
+        std::cerr << "\nSystem zostanie zamknięty. Skontaktuj się z administratorem.\n";
+
+        std::cout << "\nNaciśnij Enter, aby zamknąć...";
+        std::cin.ignore();
+        std::cin.get();
+
         return 1;
     }
 
