@@ -688,10 +688,169 @@ void eksportujDane(EksportDanych& eksportDanych) {
     }
 }
 
-void funkcjaWPrzygotowaniu(const std::string& nazwaFunkcji) {
-    std::cout << "\n=== " << nazwaFunkcji << " ===\n";
-    std::cout << "Ta funkcja jest w przygotowaniu.\n";
-    std::cout << "Będzie dostępna w następnej wersji systemu.\n\n";
+void importujDane(ImportDanych& importDanych) {
+    std::cout << "\n=== Import danych z CSV ===\n";
+    std::cout << "1. Importuj klientów z CSV\n";
+    std::cout << "2. Importuj karnety z CSV\n";
+    std::cout << "3. Importuj zajęcia z CSV\n";
+    std::cout << "Wybierz opcję: ";
+
+    int wybor;
+    std::cin >> wybor;
+
+    std::string sciezkaPliku;
+    std::cin.ignore();
+
+    try {
+        switch (wybor) {
+        case 1: {
+            std::cout << "Podaj ścieżkę do pliku CSV z klientami: ";
+            std::getline(std::cin, sciezkaPliku);
+
+            if (sciezkaPliku.empty()) {
+                sciezkaPliku = "klienci_import.csv";
+                std::cout << "Używam domyślnej ścieżki: " << sciezkaPliku << std::endl;
+            }
+
+            std::cout << "Importowanie klientów z pliku: " << sciezkaPliku << std::endl;
+
+            auto klienci = importDanych.importujKlientowZCSV(sciezkaPliku);
+
+            if (klienci.empty()) {
+                std::cout << "Nie znaleziono żadnych klientów do importu." << std::endl;
+                return;
+            }
+
+            std::cout << "Znaleziono " << klienci.size() << " klientów do importu." << std::endl;
+            std::cout << "\nPodgląd pierwszych 3 klientów:" << std::endl;
+
+            for (size_t i = 0; i < std::min(static_cast<size_t>(3), klienci.size()); ++i) {
+                const auto& klient = klienci[i];
+                std::cout << "- " << klient.pobierzImie() << " " << klient.pobierzNazwisko()
+                    << " (" << klient.pobierzEmail() << ")" << std::endl;
+            }
+
+            std::cout << "\nCzy chcesz kontynuować import? (T/N): ";
+            char potwierdzenie;
+            std::cin >> potwierdzenie;
+
+            if (potwierdzenie == 'T' || potwierdzenie == 't') {
+                std::cout << "Zapisywanie klientów do bazy danych..." << std::endl;
+                importDanych.zapiszZaimportowanychKlientow(klienci);
+                std::cout << "Pomyślnie zaimportowano " << klienci.size() << " klientów!" << std::endl;
+            }
+            else {
+                std::cout << "Import został anulowany." << std::endl;
+            }
+            break;
+        }
+        case 2: {
+            std::cout << "Podaj ścieżkę do pliku CSV z karnetami: ";
+            std::getline(std::cin, sciezkaPliku);
+
+            if (sciezkaPliku.empty()) {
+                sciezkaPliku = "karnety_import.csv";
+                std::cout << "Używam domyślnej ścieżki: " << sciezkaPliku << std::endl;
+            }
+
+            std::cout << "Importowanie karnetów z pliku: " << sciezkaPliku << std::endl;
+
+            auto karnety = importDanych.importujKarnetyZCSV(sciezkaPliku);
+
+            if (karnety.empty()) {
+                std::cout << "Nie znaleziono żadnych karnetów do importu." << std::endl;
+                return;
+            }
+
+            std::cout << "Znaleziono " << karnety.size() << " karnetów do importu." << std::endl;
+            std::cout << "\nPodgląd pierwszych 3 karnetów:" << std::endl;
+
+            for (size_t i = 0; i < std::min(static_cast<size_t>(3), karnety.size()); ++i) {
+                const auto& karnet = karnety[i];
+                std::cout << "- Typ: " << karnet.pobierzTyp()
+                    << ", Klient ID: " << karnet.pobierzIdKlienta()
+                    << ", Cena: " << karnet.pobierzCene() << " zł" << std::endl;
+            }
+
+            std::cout << "\nCzy chcesz kontynuować import? (T/N): ";
+            char potwierdzenie;
+            std::cin >> potwierdzenie;
+
+            if (potwierdzenie == 'T' || potwierdzenie == 't') {
+                std::cout << "Zapisywanie karnetów do bazy danych..." << std::endl;
+                importDanych.zapiszZaimportowaneKarnety(karnety);
+                std::cout << "Pomyślnie zaimportowano " << karnety.size() << " karnetów!" << std::endl;
+            }
+            else {
+                std::cout << "Import został anulowany." << std::endl;
+            }
+            break;
+        }
+        case 3: {
+            std::cout << "Podaj ścieżkę do pliku CSV z zajęciami: ";
+            std::getline(std::cin, sciezkaPliku);
+
+            if (sciezkaPliku.empty()) {
+                sciezkaPliku = "zajecia_import.csv";
+                std::cout << "Używam domyślnej ścieżki: " << sciezkaPliku << std::endl;
+            }
+
+            std::cout << "Importowanie zajęć z pliku: " << sciezkaPliku << std::endl;
+
+            auto zajecia = importDanych.importujZajeciaZCSV(sciezkaPliku);
+
+            if (zajecia.empty()) {
+                std::cout << "Nie znaleziono żadnych zajęć do importu." << std::endl;
+                return;
+            }
+
+            std::cout << "Znaleziono " << zajecia.size() << " zajęć do importu." << std::endl;
+            std::cout << "\nPodgląd pierwszych 3 zajęć:" << std::endl;
+
+            for (size_t i = 0; i < std::min(static_cast<size_t>(3), zajecia.size()); ++i) {
+                const auto& zajecie = zajecia[i];
+                std::cout << "- " << zajecie.pobierzNazwe()
+                    << ", Trener: " << zajecie.pobierzTrenera()
+                    << ", Data: " << zajecie.pobierzDate()
+                    << " " << zajecie.pobierzCzas() << std::endl;
+            }
+
+            std::cout << "\nCzy chcesz kontynuować import? (T/N): ";
+            char potwierdzenie;
+            std::cin >> potwierdzenie;
+
+            if (potwierdzenie == 'T' || potwierdzenie == 't') {
+                std::cout << "Zapisywanie zajęć do bazy danych..." << std::endl;
+                importDanych.zapiszZaimportowaneZajecia(zajecia);
+                std::cout << "Pomyślnie zaimportowano " << zajecia.size() << " zajęć!" << std::endl;
+            }
+            else {
+                std::cout << "Import został anulowany." << std::endl;
+            }
+            break;
+        }
+        default:
+            std::cout << "Nieprawidłowy wybór." << std::endl;
+            return;
+        }
+
+        std::cout << "\n=== Informacje o formatach CSV ===\n";
+        std::cout << "Klienci: id,imie,nazwisko,email,telefon,data_urodzenia,data_rejestracji,uwagi\n";
+        std::cout << "Karnety: id,id_klienta,typ,data_rozpoczecia,data_zakonczenia,cena,czy_aktywny\n";
+        std::cout << "Zajęcia: id,nazwa,trener,maks_uczestnikow,data,czas,czas_trwania,opis\n";
+
+    }
+    catch (const WyjatekImportu& e) {
+        std::cerr << "Błąd importu: " << e.what() << std::endl;
+        std::cout << "\nSprawdź czy:\n";
+        std::cout << "- Plik istnieje i ma poprawną ścieżkę\n";
+        std::cout << "- Plik ma prawidłowy format CSV\n";
+        std::cout << "- Pierwsza linia zawiera nagłówki kolumn\n";
+        std::cout << "- Dane w kolumnach są zgodne z oczekiwanym formatem\n";
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Nieoczekiwany błąd: " << e.what() << std::endl;
+    }
 }
 
 // === FUNKCJA MAIN ===
@@ -784,7 +943,7 @@ int main() {
                 eksportujDane(eksportDanych);
                 break;
             case 15:
-                funkcjaWPrzygotowaniu("Import danych z CSV");
+                importujDane(importDanych);
                 break;
             case 0:
                 std::cout << "\n=== Zamykanie systemu ===\n";
