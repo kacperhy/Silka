@@ -1,3 +1,4 @@
+// database/dao/klient_dao.cpp
 #include "klient_dao.h"
 #include <sstream>
 
@@ -5,11 +6,12 @@ KlientDAO::KlientDAO(MenedzerBD& menedzerBD) : menedzerBD(menedzerBD) {
 }
 
 std::vector<Klient> KlientDAO::pobierzWszystkich() {
+    std::string zapytanie = "SELECT id, first_name, last_name, email, phone, birth_date, registration_date, notes FROM clients ORDER BY last_name, first_name";
+
+    auto wyniki = menedzerBD.pobierzDane(zapytanie);
     std::vector<Klient> klienci;
 
-    auto dane = menedzerBD.pobierzDane("SELECT * FROM clients ORDER BY last_name, first_name");
-
-    for (const auto& wiersz : dane) {
+    for (const auto& wiersz : wyniki) {
         klienci.push_back(utworzKlientaZWiersza(wiersz));
     }
 
@@ -17,80 +19,76 @@ std::vector<Klient> KlientDAO::pobierzWszystkich() {
 }
 
 std::unique_ptr<Klient> KlientDAO::pobierzPoId(int id) {
-    std::stringstream zapytanie;
-    zapytanie << "SELECT * FROM clients WHERE id = " << id;
+    std::string zapytanie = "SELECT id, first_name, last_name, email, phone, birth_date, registration_date, notes FROM clients WHERE id = " + std::to_string(id);
 
-    auto dane = menedzerBD.pobierzDane(zapytanie.str());
+    auto wiersz = menedzerBD.pobierzWiersz(zapytanie);
 
-    if (dane.empty()) {
+    if (wiersz.empty()) {
         return nullptr;
     }
 
-    return std::make_unique<Klient>(utworzKlientaZWiersza(dane[0]));
+    return std::make_unique<Klient>(utworzKlientaZWiersza(wiersz));
 }
 
 int KlientDAO::dodaj(const Klient& klient) {
-    std::stringstream zapytanie;
-    zapytanie << "INSERT INTO clients (first_name, last_name, email, phone, birth_date, registration_date, notes) VALUES ("
-        << "'" << klient.pobierzImie() << "', "
-        << "'" << klient.pobierzNazwisko() << "', "
-        << "'" << klient.pobierzEmail() << "', "
-        << "'" << klient.pobierzTelefon() << "', "
-        << "'" << klient.pobierzDateUrodzenia() << "', "
-        << "'" << klient.pobierzDateRejestracji() << "', "
-        << "'" << klient.pobierzUwagi() << "')";
+    std::stringstream ss;
+    ss << "INSERT INTO clients (first_name, last_name, email, phone, birth_date, registration_date, notes) VALUES ('"
+        << klient.pobierzImie() << "', '"
+        << klient.pobierzNazwisko() << "', '"
+        << klient.pobierzEmail() << "', '"
+        << klient.pobierzTelefon() << "', '"
+        << klient.pobierzDateUrodzenia() << "', '"
+        << (klient.pobierzDateRejestracji().empty() ? Klient::pobierzAktualnaDate() : klient.pobierzDateRejestracji()) << "', '"
+        << klient.pobierzUwagi() << "')";
 
-    return menedzerBD.wykonajZapytanieZwracajaceId(zapytanie.str());
+    return menedzerBD.wykonajZapytanieZwracajaceId(ss.str());
 }
 
 bool KlientDAO::aktualizuj(const Klient& klient) {
-    std::stringstream zapytanie;
-    zapytanie << "UPDATE clients SET "
+    std::stringstream ss;
+    ss << "UPDATE clients SET "
         << "first_name = '" << klient.pobierzImie() << "', "
         << "last_name = '" << klient.pobierzNazwisko() << "', "
         << "email = '" << klient.pobierzEmail() << "', "
         << "phone = '" << klient.pobierzTelefon() << "', "
         << "birth_date = '" << klient.pobierzDateUrodzenia() << "', "
-        << "registration_date = '" << klient.pobierzDateRejestracji() << "', "
         << "notes = '" << klient.pobierzUwagi() << "' "
         << "WHERE id = " << klient.pobierzId();
 
     try {
-        menedzerBD.wykonajZapytanie(zapytanie.str());
+        menedzerBD.wykonajZapytanie(ss.str());
         return true;
     }
-    catch (const WyjatekBazyDanych&) {
+    catch (const std::exception&) {
         return false;
     }
 }
 
 bool KlientDAO::usun(int id) {
-    std::stringstream zapytanie;
-    zapytanie << "DELETE FROM clients WHERE id = " << id;
+    std::string zapytanie = "DELETE FROM clients WHERE id = " + std::to_string(id);
 
     try {
-        menedzerBD.wykonajZapytanie(zapytanie.str());
+        menedzerBD.wykonajZapytanie(zapytanie);
         return true;
     }
-    catch (const WyjatekBazyDanych&) {
+    catch (const std::exception&) {
         return false;
     }
 }
 
 std::vector<Klient> KlientDAO::wyszukaj(const std::string& klucz) {
-    std::vector<Klient> klienci;
-
-    std::stringstream zapytanie;
-    zapytanie << "SELECT * FROM clients WHERE "
+    std::stringstream ss;
+    ss << "SELECT id, first_name, last_name, email, phone, birth_date, registration_date, notes FROM clients WHERE "
         << "first_name LIKE '%" << klucz << "%' OR "
         << "last_name LIKE '%" << klucz << "%' OR "
         << "email LIKE '%" << klucz << "%' OR "
         << "phone LIKE '%" << klucz << "%' "
         << "ORDER BY last_name, first_name";
 
-    auto dane = menedzerBD.pobierzDane(zapytanie.str());
+    auto wyniki = menedzerBD.pobierzDane(ss.str());
+    std::vector<Klient> klienci;
 
-    for (const auto& wiersz : dane) {
+    for (const auto& wiersz : wyniki) {
         klienci.push_back(utworzKlientaZWiersza(wiersz));
     }
 
@@ -99,17 +97,17 @@ std::vector<Klient> KlientDAO::wyszukaj(const std::string& klucz) {
 
 Klient KlientDAO::utworzKlientaZWiersza(const WierszBD& wiersz) {
     if (wiersz.size() < 8) {
-        throw WyjatekBazyDanych("Nieprawid³owa liczba kolumn dla klienta");
+        throw std::runtime_error("Nieprawid³owy wiersz danych klienta");
     }
 
-    int id = std::stoi(wiersz[0]);
-    std::string imie = wiersz[1];
-    std::string nazwisko = wiersz[2];
-    std::string email = wiersz[3];
-    std::string telefon = wiersz[4];
-    std::string dataUrodzenia = wiersz[5];
-    std::string dataRejestracji = wiersz[6];
-    std::string uwagi = wiersz[7];
-
-    return Klient(id, imie, nazwisko, email, telefon, dataUrodzenia, dataRejestracji, uwagi);
+    return Klient(
+        std::stoi(wiersz[0]),  // id
+        wiersz[1],             // first_name
+        wiersz[2],             // last_name
+        wiersz[3],             // email
+        wiersz[4],             // phone
+        wiersz[5],             // birth_date
+        wiersz[6],             // registration_date
+        wiersz[7]              // notes
+    );
 }

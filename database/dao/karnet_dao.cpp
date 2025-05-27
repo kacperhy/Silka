@@ -1,3 +1,4 @@
+// database/dao/karnet_dao.cpp
 #include "karnet_dao.h"
 #include <sstream>
 
@@ -5,11 +6,12 @@ KarnetDAO::KarnetDAO(MenedzerBD& menedzerBD) : menedzerBD(menedzerBD) {
 }
 
 std::vector<Karnet> KarnetDAO::pobierzWszystkie() {
+    std::string zapytanie = "SELECT id, client_id, type, start_date, end_date, price, is_active FROM memberships ORDER BY start_date DESC";
+
+    auto wyniki = menedzerBD.pobierzDane(zapytanie);
     std::vector<Karnet> karnety;
 
-    auto dane = menedzerBD.pobierzDane("SELECT * FROM memberships ORDER BY start_date DESC");
-
-    for (const auto& wiersz : dane) {
+    for (const auto& wiersz : wyniki) {
         karnety.push_back(utworzKarnetZWiersza(wiersz));
     }
 
@@ -17,27 +19,24 @@ std::vector<Karnet> KarnetDAO::pobierzWszystkie() {
 }
 
 std::unique_ptr<Karnet> KarnetDAO::pobierzPoId(int id) {
-    std::stringstream zapytanie;
-    zapytanie << "SELECT * FROM memberships WHERE id = " << id;
+    std::string zapytanie = "SELECT id, client_id, type, start_date, end_date, price, is_active FROM memberships WHERE id = " + std::to_string(id);
 
-    auto dane = menedzerBD.pobierzDane(zapytanie.str());
+    auto wiersz = menedzerBD.pobierzWiersz(zapytanie);
 
-    if (dane.empty()) {
+    if (wiersz.empty()) {
         return nullptr;
     }
 
-    return std::make_unique<Karnet>(utworzKarnetZWiersza(dane[0]));
+    return std::make_unique<Karnet>(utworzKarnetZWiersza(wiersz));
 }
 
 std::vector<Karnet> KarnetDAO::pobierzDlaKlienta(int idKlienta) {
+    std::string zapytanie = "SELECT id, client_id, type, start_date, end_date, price, is_active FROM memberships WHERE client_id = " + std::to_string(idKlienta) + " ORDER BY start_date DESC";
+
+    auto wyniki = menedzerBD.pobierzDane(zapytanie);
     std::vector<Karnet> karnety;
 
-    std::stringstream zapytanie;
-    zapytanie << "SELECT * FROM memberships WHERE client_id = " << idKlienta << " ORDER BY start_date DESC";
-
-    auto dane = menedzerBD.pobierzDane(zapytanie.str());
-
-    for (const auto& wiersz : dane) {
+    for (const auto& wiersz : wyniki) {
         karnety.push_back(utworzKarnetZWiersza(wiersz));
     }
 
@@ -45,21 +44,21 @@ std::vector<Karnet> KarnetDAO::pobierzDlaKlienta(int idKlienta) {
 }
 
 int KarnetDAO::dodaj(const Karnet& karnet) {
-    std::stringstream zapytanie;
-    zapytanie << "INSERT INTO memberships (client_id, type, start_date, end_date, price, is_active) VALUES ("
-        << karnet.pobierzIdKlienta() << ", "
-        << "'" << karnet.pobierzTyp() << "', "
-        << "'" << karnet.pobierzDateRozpoczecia() << "', "
-        << "'" << karnet.pobierzDateZakonczenia() << "', "
+    std::stringstream ss;
+    ss << "INSERT INTO memberships (client_id, type, start_date, end_date, price, is_active) VALUES ("
+        << karnet.pobierzIdKlienta() << ", '"
+        << karnet.pobierzTyp() << "', '"
+        << karnet.pobierzDateRozpoczecia() << "', '"
+        << karnet.pobierzDateZakonczenia() << "', "
         << karnet.pobierzCene() << ", "
         << (karnet.pobierzCzyAktywny() ? 1 : 0) << ")";
 
-    return menedzerBD.wykonajZapytanieZwracajaceId(zapytanie.str());
+    return menedzerBD.wykonajZapytanieZwracajaceId(ss.str());
 }
 
 bool KarnetDAO::aktualizuj(const Karnet& karnet) {
-    std::stringstream zapytanie;
-    zapytanie << "UPDATE memberships SET "
+    std::stringstream ss;
+    ss << "UPDATE memberships SET "
         << "client_id = " << karnet.pobierzIdKlienta() << ", "
         << "type = '" << karnet.pobierzTyp() << "', "
         << "start_date = '" << karnet.pobierzDateRozpoczecia() << "', "
@@ -69,54 +68,47 @@ bool KarnetDAO::aktualizuj(const Karnet& karnet) {
         << "WHERE id = " << karnet.pobierzId();
 
     try {
-        menedzerBD.wykonajZapytanie(zapytanie.str());
+        menedzerBD.wykonajZapytanie(ss.str());
         return true;
     }
-    catch (const WyjatekBazyDanych&) {
+    catch (const std::exception&) {
         return false;
     }
 }
 
 bool KarnetDAO::usun(int id) {
-    std::stringstream zapytanie;
-    zapytanie << "DELETE FROM memberships WHERE id = " << id;
+    std::string zapytanie = "DELETE FROM memberships WHERE id = " + std::to_string(id);
 
     try {
-        menedzerBD.wykonajZapytanie(zapytanie.str());
+        menedzerBD.wykonajZapytanie(zapytanie);
         return true;
     }
-    catch (const WyjatekBazyDanych&) {
+    catch (const std::exception&) {
         return false;
     }
 }
 
 bool KarnetDAO::czyKlientMaAktywnyKarnet(int idKlienta) {
-    std::string aktualnaDdata = Karnet::pobierzAktualnaDate();
+    std::string zapytanie = "SELECT COUNT(*) FROM memberships WHERE client_id = " + std::to_string(idKlienta) +
+        " AND is_active = 1 AND date('now') BETWEEN start_date AND end_date";
 
-    std::stringstream zapytanie;
-    zapytanie << "SELECT COUNT(*) FROM memberships "
-        << "WHERE client_id = " << idKlienta << " "
-        << "AND is_active = 1 "
-        << "AND start_date <= '" << aktualnaDdata << "' "
-        << "AND end_date >= '" << aktualnaDdata << "'";
+    std::string wynik = menedzerBD.pobierzWartosc(zapytanie);
 
-    std::string wynik = menedzerBD.pobierzWartosc(zapytanie.str());
-
-    return std::stoi(wynik) > 0;
+    return !wynik.empty() && std::stoi(wynik) > 0;
 }
 
 Karnet KarnetDAO::utworzKarnetZWiersza(const WierszBD& wiersz) {
     if (wiersz.size() < 7) {
-        throw WyjatekBazyDanych("Nieprawid³owa liczba kolumn dla karnetu");
+        throw std::runtime_error("Nieprawid³owy wiersz danych karnetu");
     }
 
-    int id = std::stoi(wiersz[0]);
-    int idKlienta = std::stoi(wiersz[1]);
-    std::string typ = wiersz[2];
-    std::string dataRozpoczecia = wiersz[3];
-    std::string dataZakonczenia = wiersz[4];
-    double cena = std::stod(wiersz[5]);
-    bool czyAktywny = (wiersz[6] == "1" || wiersz[6] == "true");
-
-    return Karnet(id, idKlienta, typ, dataRozpoczecia, dataZakonczenia, cena, czyAktywny);
+    return Karnet(
+        std::stoi(wiersz[0]),           // id
+        std::stoi(wiersz[1]),           // client_id
+        wiersz[2],                      // type
+        wiersz[3],                      // start_date
+        wiersz[4],                      // end_date
+        std::stod(wiersz[5]),           // price
+        std::stoi(wiersz[6]) == 1       // is_active
+    );
 }

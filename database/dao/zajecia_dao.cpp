@@ -1,3 +1,4 @@
+// database/dao/zajecia_dao.cpp
 #include "zajecia_dao.h"
 #include <sstream>
 
@@ -5,11 +6,12 @@ ZajeciaDAO::ZajeciaDAO(MenedzerBD& menedzerBD) : menedzerBD(menedzerBD) {
 }
 
 std::vector<Zajecia> ZajeciaDAO::pobierzWszystkieZajecia() {
+    std::string zapytanie = "SELECT id, name, trainer, max_participants, date, time, duration, description FROM gym_classes ORDER BY date, time";
+
+    auto wyniki = menedzerBD.pobierzDane(zapytanie);
     std::vector<Zajecia> zajecia;
 
-    auto dane = menedzerBD.pobierzDane("SELECT * FROM gym_classes ORDER BY date, time");
-
-    for (const auto& wiersz : dane) {
+    for (const auto& wiersz : wyniki) {
         zajecia.push_back(utworzZajeciaZWiersza(wiersz));
     }
 
@@ -17,35 +19,34 @@ std::vector<Zajecia> ZajeciaDAO::pobierzWszystkieZajecia() {
 }
 
 std::unique_ptr<Zajecia> ZajeciaDAO::pobierzZajeciaPoId(int id) {
-    std::stringstream zapytanie;
-    zapytanie << "SELECT * FROM gym_classes WHERE id = " << id;
+    std::string zapytanie = "SELECT id, name, trainer, max_participants, date, time, duration, description FROM gym_classes WHERE id = " + std::to_string(id);
 
-    auto dane = menedzerBD.pobierzDane(zapytanie.str());
+    auto wiersz = menedzerBD.pobierzWiersz(zapytanie);
 
-    if (dane.empty()) {
+    if (wiersz.empty()) {
         return nullptr;
     }
 
-    return std::make_unique<Zajecia>(utworzZajeciaZWiersza(dane[0]));
+    return std::make_unique<Zajecia>(utworzZajeciaZWiersza(wiersz));
 }
 
 int ZajeciaDAO::dodajZajecia(const Zajecia& zajecia) {
-    std::stringstream zapytanie;
-    zapytanie << "INSERT INTO gym_classes (name, trainer, max_participants, date, time, duration, description) VALUES ("
-        << "'" << zajecia.pobierzNazwe() << "', "
-        << "'" << zajecia.pobierzTrenera() << "', "
-        << zajecia.pobierzMaksUczestnikow() << ", "
-        << "'" << zajecia.pobierzDate() << "', "
-        << "'" << zajecia.pobierzCzas() << "', "
-        << zajecia.pobierzCzasTrwania() << ", "
-        << "'" << zajecia.pobierzOpis() << "')";
+    std::stringstream ss;
+    ss << "INSERT INTO gym_classes (name, trainer, max_participants, date, time, duration, description) VALUES ('"
+        << zajecia.pobierzNazwe() << "', '"
+        << zajecia.pobierzTrenera() << "', "
+        << zajecia.pobierzMaksUczestnikow() << ", '"
+        << zajecia.pobierzDate() << "', '"
+        << zajecia.pobierzCzas() << "', "
+        << zajecia.pobierzCzasTrwania() << ", '"
+        << zajecia.pobierzOpis() << "')";
 
-    return menedzerBD.wykonajZapytanieZwracajaceId(zapytanie.str());
+    return menedzerBD.wykonajZapytanieZwracajaceId(ss.str());
 }
 
 bool ZajeciaDAO::aktualizujZajecia(const Zajecia& zajecia) {
-    std::stringstream zapytanie;
-    zapytanie << "UPDATE gym_classes SET "
+    std::stringstream ss;
+    ss << "UPDATE gym_classes SET "
         << "name = '" << zajecia.pobierzNazwe() << "', "
         << "trainer = '" << zajecia.pobierzTrenera() << "', "
         << "max_participants = " << zajecia.pobierzMaksUczestnikow() << ", "
@@ -56,33 +57,33 @@ bool ZajeciaDAO::aktualizujZajecia(const Zajecia& zajecia) {
         << "WHERE id = " << zajecia.pobierzId();
 
     try {
-        menedzerBD.wykonajZapytanie(zapytanie.str());
+        menedzerBD.wykonajZapytanie(ss.str());
         return true;
     }
-    catch (const WyjatekBazyDanych&) {
+    catch (const std::exception&) {
         return false;
     }
 }
 
 bool ZajeciaDAO::usunZajecia(int id) {
-    std::stringstream zapytanie;
-    zapytanie << "DELETE FROM gym_classes WHERE id = " << id;
+    std::string zapytanie = "DELETE FROM gym_classes WHERE id = " + std::to_string(id);
 
     try {
-        menedzerBD.wykonajZapytanie(zapytanie.str());
+        menedzerBD.wykonajZapytanie(zapytanie);
         return true;
     }
-    catch (const WyjatekBazyDanych&) {
+    catch (const std::exception&) {
         return false;
     }
 }
 
 std::vector<Rezerwacja> ZajeciaDAO::pobierzWszystkieRezerwacje() {
+    std::string zapytanie = "SELECT id, client_id, class_id, reservation_date, status FROM reservations ORDER BY reservation_date DESC";
+
+    auto wyniki = menedzerBD.pobierzDane(zapytanie);
     std::vector<Rezerwacja> rezerwacje;
 
-    auto dane = menedzerBD.pobierzDane("SELECT * FROM reservations ORDER BY reservation_date DESC");
-
-    for (const auto& wiersz : dane) {
+    for (const auto& wiersz : wyniki) {
         rezerwacje.push_back(utworzRezerwacjeZWiersza(wiersz));
     }
 
@@ -90,14 +91,12 @@ std::vector<Rezerwacja> ZajeciaDAO::pobierzWszystkieRezerwacje() {
 }
 
 std::vector<Rezerwacja> ZajeciaDAO::pobierzRezerwacjeKlienta(int idKlienta) {
+    std::string zapytanie = "SELECT id, client_id, class_id, reservation_date, status FROM reservations WHERE client_id = " + std::to_string(idKlienta) + " ORDER BY reservation_date DESC";
+
+    auto wyniki = menedzerBD.pobierzDane(zapytanie);
     std::vector<Rezerwacja> rezerwacje;
 
-    std::stringstream zapytanie;
-    zapytanie << "SELECT * FROM reservations WHERE client_id = " << idKlienta << " ORDER BY reservation_date DESC";
-
-    auto dane = menedzerBD.pobierzDane(zapytanie.str());
-
-    for (const auto& wiersz : dane) {
+    for (const auto& wiersz : wyniki) {
         rezerwacje.push_back(utworzRezerwacjeZWiersza(wiersz));
     }
 
@@ -105,14 +104,12 @@ std::vector<Rezerwacja> ZajeciaDAO::pobierzRezerwacjeKlienta(int idKlienta) {
 }
 
 std::vector<Rezerwacja> ZajeciaDAO::pobierzRezerwacjeZajec(int idZajec) {
+    std::string zapytanie = "SELECT id, client_id, class_id, reservation_date, status FROM reservations WHERE class_id = " + std::to_string(idZajec) + " AND status = 'potwierdzona' ORDER BY reservation_date";
+
+    auto wyniki = menedzerBD.pobierzDane(zapytanie);
     std::vector<Rezerwacja> rezerwacje;
 
-    std::stringstream zapytanie;
-    zapytanie << "SELECT * FROM reservations WHERE class_id = " << idZajec << " ORDER BY reservation_date";
-
-    auto dane = menedzerBD.pobierzDane(zapytanie.str());
-
-    for (const auto& wiersz : dane) {
+    for (const auto& wiersz : wyniki) {
         rezerwacje.push_back(utworzRezerwacjeZWiersza(wiersz));
     }
 
@@ -120,19 +117,19 @@ std::vector<Rezerwacja> ZajeciaDAO::pobierzRezerwacjeZajec(int idZajec) {
 }
 
 int ZajeciaDAO::dodajRezerwacje(const Rezerwacja& rezerwacja) {
-    std::stringstream zapytanie;
-    zapytanie << "INSERT INTO reservations (client_id, class_id, reservation_date, status) VALUES ("
+    std::stringstream ss;
+    ss << "INSERT INTO reservations (client_id, class_id, reservation_date, status) VALUES ("
         << rezerwacja.pobierzIdKlienta() << ", "
-        << rezerwacja.pobierzIdZajec() << ", "
-        << "'" << rezerwacja.pobierzDateRezerwacji() << "', "
-        << "'" << rezerwacja.pobierzStatus() << "')";
+        << rezerwacja.pobierzIdZajec() << ", '"
+        << (rezerwacja.pobierzDateRezerwacji().empty() ? Rezerwacja::pobierzAktualnyCzas() : rezerwacja.pobierzDateRezerwacji()) << "', '"
+        << rezerwacja.pobierzStatus() << "')";
 
-    return menedzerBD.wykonajZapytanieZwracajaceId(zapytanie.str());
+    return menedzerBD.wykonajZapytanieZwracajaceId(ss.str());
 }
 
 bool ZajeciaDAO::aktualizujRezerwacje(const Rezerwacja& rezerwacja) {
-    std::stringstream zapytanie;
-    zapytanie << "UPDATE reservations SET "
+    std::stringstream ss;
+    ss << "UPDATE reservations SET "
         << "client_id = " << rezerwacja.pobierzIdKlienta() << ", "
         << "class_id = " << rezerwacja.pobierzIdZajec() << ", "
         << "reservation_date = '" << rezerwacja.pobierzDateRezerwacji() << "', "
@@ -140,65 +137,61 @@ bool ZajeciaDAO::aktualizujRezerwacje(const Rezerwacja& rezerwacja) {
         << "WHERE id = " << rezerwacja.pobierzId();
 
     try {
-        menedzerBD.wykonajZapytanie(zapytanie.str());
+        menedzerBD.wykonajZapytanie(ss.str());
         return true;
     }
-    catch (const WyjatekBazyDanych&) {
+    catch (const std::exception&) {
         return false;
     }
 }
 
 bool ZajeciaDAO::usunRezerwacje(int id) {
-    std::stringstream zapytanie;
-    zapytanie << "DELETE FROM reservations WHERE id = " << id;
+    std::string zapytanie = "DELETE FROM reservations WHERE id = " + std::to_string(id);
 
     try {
-        menedzerBD.wykonajZapytanie(zapytanie.str());
+        menedzerBD.wykonajZapytanie(zapytanie);
         return true;
     }
-    catch (const WyjatekBazyDanych&) {
+    catch (const std::exception&) {
         return false;
     }
 }
 
 int ZajeciaDAO::policzRezerwacjeZajec(int idZajec) {
-    std::stringstream zapytanie;
-    zapytanie << "SELECT COUNT(*) FROM reservations "
-        << "WHERE class_id = " << idZajec << " "
-        << "AND status = 'potwierdzona'";
+    std::string zapytanie = "SELECT COUNT(*) FROM reservations WHERE class_id = " + std::to_string(idZajec) + " AND status = 'potwierdzona'";
 
-    std::string wynik = menedzerBD.pobierzWartosc(zapytanie.str());
+    std::string wynik = menedzerBD.pobierzWartosc(zapytanie);
 
-    return std::stoi(wynik);
+    return wynik.empty() ? 0 : std::stoi(wynik);
 }
 
 Zajecia ZajeciaDAO::utworzZajeciaZWiersza(const WierszBD& wiersz) {
     if (wiersz.size() < 8) {
-        throw WyjatekBazyDanych("Nieprawid這wa liczba kolumn dla zaj耩");
+        throw std::runtime_error("Nieprawid這wy wiersz danych zaj耩");
     }
 
-    int id = std::stoi(wiersz[0]);
-    std::string nazwa = wiersz[1];
-    std::string trener = wiersz[2];
-    int maksUczestnikow = std::stoi(wiersz[3]);
-    std::string data = wiersz[4];
-    std::string czas = wiersz[5];
-    int czasTrwania = std::stoi(wiersz[6]);
-    std::string opis = wiersz[7];
-
-    return Zajecia(id, nazwa, trener, maksUczestnikow, data, czas, czasTrwania, opis);
+    return Zajecia(
+        std::stoi(wiersz[0]),   // id
+        wiersz[1],              // name
+        wiersz[2],              // trainer
+        std::stoi(wiersz[3]),   // max_participants
+        wiersz[4],              // date
+        wiersz[5],              // time
+        std::stoi(wiersz[6]),   // duration
+        wiersz[7]               // description
+    );
 }
 
 Rezerwacja ZajeciaDAO::utworzRezerwacjeZWiersza(const WierszBD& wiersz) {
     if (wiersz.size() < 5) {
-        throw WyjatekBazyDanych("Nieprawid這wa liczba kolumn dla rezerwacji");
+        throw std::runtime_error("Nieprawid這wy wiersz danych rezerwacji");
     }
 
-    int id = std::stoi(wiersz[0]);
-    int idKlienta = std::stoi(wiersz[1]);
-    int idZajec = std::stoi(wiersz[2]);
-    std::string dataRezerwacji = wiersz[3];
-    std::string status = wiersz[4];
-
-    return Rezerwacja(id, idKlienta, idZajec, dataRezerwacji, status);
+    return Rezerwacja(
+        std::stoi(wiersz[0]),   // id
+        std::stoi(wiersz[1]),   // client_id
+        std::stoi(wiersz[2]),   // class_id
+        wiersz[3],              // reservation_date
+        wiersz[4]               // status
+    );
 }
