@@ -1,4 +1,3 @@
-#define NOMINMAX
 // tests/main.cpp
 #include <iostream>
 #include <memory>
@@ -14,6 +13,8 @@
 #include "../database/dao/karnet_dao.h"
 #include "../services/uslugi_klienta.h"
 #include "../services/uslugi_karnetu.h"
+#include "../services/uslugi_raportow.h"
+#include "../utils/historia_zmian.h"
 #include "../models/klient.h"
 #include "../models/karnet.h"
 #include "../models/zajecia.h"
@@ -31,13 +32,19 @@ void wyswietlMenu() {
     std::cout << "5. Dodaj karnet dla klienta\n";
     std::cout << "6. Wyświetl karnety klienta\n";
     std::cout << "7. Usuń karnet\n";
-    std::cout << "\n=== ZAJĘCIA I REZERWACJE ===\n";
-    std::cout << "8. Zarządzanie zajęciami (w przygotowaniu)\n";
-    std::cout << "9. Zarządzanie rezerwacjami (w przygotowaniu)\n";
     std::cout << "\n=== RAPORTY ===\n";
-    std::cout << "10. Wygeneruj raport aktywności (w przygotowaniu)\n";
-    std::cout << "\n=== IMPORT/EXPORT ===\n";
-    std::cout << "11. Import/Export danych (w przygotowaniu)\n";
+    std::cout << "8. Raport aktywności klienta\n";
+    std::cout << "9. Raport finansowy\n";
+    std::cout << "10. Raport wszystkich klientów\n";
+    std::cout << "11. Raport karnetów\n";
+    std::cout << "\n=== HISTORIA I COFANIE ===\n";
+    std::cout << "12. Pokaż historię zmian\n";
+    std::cout << "13. Cofnij ostatnią operację\n";
+    std::cout << "14. Punkty przywracania\n";
+    std::cout << "15. Raport historii\n";
+    std::cout << "\n=== INNE ===\n";
+    std::cout << "16. Zajęcia i rezerwacje (w przygotowaniu)\n";
+    std::cout << "17. Import/Export danych (w przygotowaniu)\n";
     std::cout << "\n0. Wyjście\n";
     std::cout << "Wybierz opcję: ";
 }
@@ -360,6 +367,318 @@ void usunKarnet(UslugiKarnetu& uslugiKarnetu) {
     }
 }
 
+// === FUNKCJE DO RAPORTÓW ===
+
+void menuRaportow(UslugiRaportow& uslugiRaportow) {
+    int wybor;
+
+    std::cout << "\n=== MENU RAPORTÓW ===\n";
+    std::cout << "1. Raport aktywności klienta\n";
+    std::cout << "2. Raport finansowy\n";
+    std::cout << "3. Raport wszystkich klientów\n";
+    std::cout << "4. Raport karnetów\n";
+    std::cout << "0. Powrót\n";
+    std::cout << "Wybierz opcję: ";
+    std::cin >> wybor;
+
+    std::string raport;
+    std::string nazwaPliku;
+
+    try {
+        switch (wybor) {
+        case 1: {
+            int idKlienta;
+            std::string dataOd, dataDo;
+
+            std::cout << "Podaj ID klienta: ";
+            std::cin >> idKlienta;
+
+            std::cin.ignore();
+            std::cout << "Podaj datę od (RRRR-MM-DD) lub Enter dla domyślnej: ";
+            std::getline(std::cin, dataOd);
+            if (dataOd.empty()) dataOd = "2024-01-01";
+
+            std::cout << "Podaj datę do (RRRR-MM-DD) lub Enter dla domyślnej: ";
+            std::getline(std::cin, dataDo);
+            if (dataDo.empty()) dataDo = "2025-12-31";
+
+            raport = uslugiRaportow.generujRaportAktywnosci(idKlienta, dataOd, dataDo);
+            nazwaPliku = "raport_aktywnosci_klient_" + std::to_string(idKlienta);
+            break;
+        }
+        case 2: {
+            std::string miesiac;
+            std::cin.ignore();
+            std::cout << "Podaj miesiąc (RRRR-MM) lub Enter dla bieżącego: ";
+            std::getline(std::cin, miesiac);
+            if (miesiac.empty()) miesiac = "2025-05";
+
+            raport = uslugiRaportow.generujRaportFinansowy(miesiac);
+            nazwaPliku = "raport_finansowy_" + miesiac;
+            break;
+        }
+        case 3: {
+            raport = uslugiRaportow.generujRaportKlientow();
+            nazwaPliku = "raport_klientow";
+            break;
+        }
+        case 4: {
+            raport = uslugiRaportow.generujRaportKarnetow();
+            nazwaPliku = "raport_karnetow";
+            break;
+        }
+        case 0:
+            return;
+        default:
+            std::cout << "Nieprawidłowy wybór.\n";
+            return;
+        }
+
+        // Wyświetl raport
+        std::cout << "\n" << raport << std::endl;
+
+        // Zapytaj o zapis do pliku
+        char zapisac;
+        std::cout << "Czy zapisać raport do pliku? (T/N): ";
+        std::cin >> zapisac;
+
+        if (zapisac == 'T' || zapisac == 't') {
+            std::cout << "\nWybierz format:\n";
+            std::cout << "1. TXT\n";
+            std::cout << "2. HTML\n";
+            std::cout << "Wybierz: ";
+
+            int formatWybor;
+            std::cin >> formatWybor;
+
+            std::string format = (formatWybor == 2) ? "HTML" : "TXT";
+            std::string rozszerzenie = (formatWybor == 2) ? ".html" : ".txt";
+            std::string sciezka = nazwaPliku + rozszerzenie;
+
+            if (uslugiRaportow.zapisRaportDoPliku(raport, format, sciezka)) {
+                std::cout << "Raport zapisano do pliku: " << sciezka << std::endl;
+            }
+            else {
+                std::cout << "Błąd zapisu raportu do pliku." << std::endl;
+            }
+        }
+
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Błąd generowania raportu: " << e.what() << std::endl;
+    }
+}
+
+// === FUNKCJE DO HISTORII ZMIAN ===
+
+void pokazHistorieZmian(HistoriaZmian& historia) {
+    std::cout << "\n=== HISTORIA ZMIAN ===\n";
+
+    int limit;
+    std::cout << "Ile ostatnich operacji pokazać (0 = wszystkie): ";
+    std::cin >> limit;
+
+    auto logi = historia.pobierzHistorie(limit > 0 ? limit : 0);
+
+    if (logi.empty()) {
+        std::cout << "\nBrak operacji w historii.\n";
+        return;
+    }
+
+    std::cout << "\nOSTATNIE OPERACJE:\n";
+    std::cout << std::string(80, '=') << "\n";
+
+    for (const auto& log : logi) {
+        std::cout << "ID: " << log.id
+            << " | " << log.typOperacji
+            << " | " << log.tabela;
+
+        if (log.idRekordu > 0) {
+            std::cout << " | Rekord: " << log.idRekordu;
+        }
+
+        std::cout << "\n    Czas: " << log.czasOperacji;
+
+        if (!log.opis.empty()) {
+            std::cout << "\n    Opis: " << log.opis;
+        }
+
+        std::cout << "\n" << std::string(80, '-') << "\n";
+    }
+}
+
+void cofnijOperacje(HistoriaZmian& historia) {
+    std::cout << "\n=== COFANIE OPERACJI ===\n";
+
+    char wybor;
+    std::cout << "1. Cofnij ostatnią operację\n";
+    std::cout << "2. Cofnij konkretną operację (podaj ID)\n";
+    std::cout << "Wybierz opcję (1/2): ";
+    std::cin >> wybor;
+
+    if (wybor == '1') {
+        if (historia.cofnijOstatnia()) {
+            std::cout << "Operacja została cofnięta.\n";
+        }
+        else {
+            std::cout << "Nie udało się cofnąć operacji.\n";
+        }
+    }
+    else if (wybor == '2') {
+        int idOperacji;
+        std::cout << "Podaj ID operacji do cofnięcia: ";
+        std::cin >> idOperacji;
+
+        if (historia.cofnijOperacje(idOperacji)) {
+            std::cout << "Operacja została cofnięta.\n";
+        }
+        else {
+            std::cout << "Nie udało się cofnąć operacji.\n";
+        }
+    }
+    else {
+        std::cout << "Nieprawidłowy wybór.\n";
+    }
+}
+
+void menuPunktowPrzywracania(HistoriaZmian& historia) {
+    int wybor;
+
+    std::cout << "\n=== PUNKTY PRZYWRACANIA ===\n";
+    std::cout << "1. Pokaż punkty przywracania\n";
+    std::cout << "2. Utwórz nowy punkt przywracania\n";
+    std::cout << "3. Przywróć do punktu\n";
+    std::cout << "4. Usuń punkt przywracania\n";
+    std::cout << "0. Powrót\n";
+    std::cout << "Wybierz opcję: ";
+    std::cin >> wybor;
+
+    try {
+        switch (wybor) {
+        case 1: {
+            auto punkty = historia.pobierzPunktyPrzywracania();
+
+            if (punkty.empty()) {
+                std::cout << "\nBrak punktów przywracania.\n";
+            }
+            else {
+                std::cout << "\nPUNKTY PRZYWRACANIA:\n";
+                std::cout << std::string(60, '=') << "\n";
+
+                for (const auto& punkt : punkty) {
+                    std::cout << "ID: " << punkt.id
+                        << " | \"" << punkt.nazwa << "\"\n";
+                    std::cout << "Utworzony: " << punkt.czasUtworzenia << "\n";
+
+                    if (!punkt.opis.empty()) {
+                        std::cout << "Opis: " << punkt.opis << "\n";
+                    }
+
+                    std::cout << std::string(60, '-') << "\n";
+                }
+            }
+            break;
+        }
+        case 2: {
+            std::string nazwa, opis;
+
+            std::cin.ignore();
+            std::cout << "Podaj nazwę punktu przywracania: ";
+            std::getline(std::cin, nazwa);
+
+            std::cout << "Podaj opis (opcjonalny): ";
+            std::getline(std::cin, opis);
+
+            int id = historia.utworzPunktPrzywracania(nazwa, opis);
+            if (id > 0) {
+                std::cout << "Utworzono punkt przywracania z ID: " << id << std::endl;
+            }
+            else {
+                std::cout << "Błąd tworzenia punktu przywracania.\n";
+            }
+            break;
+        }
+        case 3: {
+            int idPunktu;
+            std::cout << "Podaj ID punktu przywracania: ";
+            std::cin >> idPunktu;
+
+            std::cout << "UWAGA: Ta operacja cofnie wszystkie zmiany wykonane po utworzeniu punktu!\n";
+            std::cout << "Czy na pewno kontynuować? (T/N): ";
+
+            char potwierdzenie;
+            std::cin >> potwierdzenie;
+
+            if (potwierdzenie == 'T' || potwierdzenie == 't') {
+                if (historia.przywrocDoPunktu(idPunktu)) {
+                    std::cout << "Pomyślnie przywrócono do punktu.\n";
+                }
+                else {
+                    std::cout << "Błąd przywracania do punktu.\n";
+                }
+            }
+            else {
+                std::cout << "Anulowano operację.\n";
+            }
+            break;
+        }
+        case 4: {
+            int idPunktu;
+            std::cout << "Podaj ID punktu do usunięcia: ";
+            std::cin >> idPunktu;
+
+            if (historia.usunPunktPrzywracania(idPunktu)) {
+                std::cout << "Punkt przywracania został usunięty.\n";
+            }
+            else {
+                std::cout << "Błąd usuwania punktu przywracania.\n";
+            }
+            break;
+        }
+        case 0:
+            return;
+        default:
+            std::cout << "Nieprawidłowy wybór.\n";
+            break;
+        }
+
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Błąd: " << e.what() << std::endl;
+    }
+}
+
+void pokazRaportHistorii(HistoriaZmian& historia) {
+    std::cout << "\n=== GENEROWANIE RAPORTU HISTORII ===\n";
+
+    try {
+        std::string raport = historia.generujRaportHistorii();
+        std::cout << raport << std::endl;
+
+        char zapisac;
+        std::cout << "Czy zapisać raport do pliku? (T/N): ";
+        std::cin >> zapisac;
+
+        if (zapisac == 'T' || zapisac == 't') {
+            std::string sciezka = "raport_historii.txt";
+            std::ofstream plik(sciezka);
+
+            if (plik.is_open()) {
+                plik << raport;
+                plik.close();
+                std::cout << "Raport zapisano do pliku: " << sciezka << std::endl;
+            }
+            else {
+                std::cout << "Błąd zapisu raportu do pliku.\n";
+            }
+        }
+
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Błąd generowania raportu historii: " << e.what() << std::endl;
+    }
+}
+
 // === FUNKCJE POMOCNICZE ===
 
 void funkcjaWPrzygotowaniu(const std::string& nazwaFunkcji) {
@@ -380,10 +699,18 @@ void funkcjaWPrzygotowaniu(const std::string& nazwaFunkcji) {
 // === FUNKCJA MAIN ===
 
 int main() {
-    // Ustawienie kodowania dla polskich znaków
+    // Ustawienia Windows - polskie znaki i kodowanie
     SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+    system("chcp 65001 >nul"); // Ustawienie UTF-8
 
-    std::cout << "=== Inicjalizacja systemu zarządzania siłownią ===\n";
+    // Ustawienie tytułu okna konsoli
+    SetConsoleTitleA("System Zarządzania Siłownią v1.0");
+
+    std::cout << "╔══════════════════════════════════════════════════════════════╗\n";
+    std::cout << "║          SYSTEM ZARZĄDZANIA SIŁOWNIĄ - WINDOWS               ║\n";
+    std::cout << "╚══════════════════════════════════════════════════════════════╝\n";
+    std::cout << "🏋️‍♂️ Witamy w profesjonalnym systemie zarządzania siłownią!\n\n";
 
     try {
         // Inicjalizacja systemu zarządzania bazą danych
@@ -399,6 +726,8 @@ int main() {
         std::cout << "Inicjalizacja serwisów biznesowych...\n";
         UslugiKlienta uslugiKlienta(klientDAO);
         UslugiKarnetu uslugiKarnetu(karnetDAO);
+        UslugiRaportow uslugiRaportow(uslugiKlienta, uslugiKarnetu);
+        HistoriaZmian historia(menedzerBD);
 
         std::cout << "System został pomyślnie zainicjalizowany!\n";
 
@@ -439,15 +768,27 @@ int main() {
                 usunKarnet(uslugiKarnetu);
                 break;
             case 8:
-                funkcjaWPrzygotowaniu("Zarządzanie zajęciami");
-                break;
             case 9:
-                funkcjaWPrzygotowaniu("Zarządzanie rezerwacjami");
-                break;
             case 10:
-                funkcjaWPrzygotowaniu("Generowanie raportów");
-                break;
             case 11:
+                menuRaportow(uslugiRaportow);
+                break;
+            case 12:
+                pokazHistorieZmian(historia);
+                break;
+            case 13:
+                cofnijOperacje(historia);
+                break;
+            case 14:
+                menuPunktowPrzywracania(historia);
+                break;
+            case 15:
+                pokazRaportHistorii(historia);
+                break;
+            case 16:
+                funkcjaWPrzygotowaniu("Zarządzanie zajęciami i rezerwacjami");
+                break;
+            case 17:
                 funkcjaWPrzygotowaniu("Import/Export danych");
                 break;
             case 0:
@@ -456,7 +797,7 @@ int main() {
                 std::cout << "Do widzenia!\n";
                 break;
             default:
-                std::cout << "Nieprawidłowy wybór. Wybierz opcję od 0 do 11.\n";
+                std::cout << "Nieprawidłowy wybór. Wybierz opcję od 0 do 17.\n";
                 break;
             }
 

@@ -1,557 +1,826 @@
-// utils/historia_zmian.cpp
-#include "historia_zmian.h"
+// tests/main.cpp
 #include <iostream>
-#include <sstream>
-#include <algorithm>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <windows.h>
+#include <limits>
+#include <iomanip>
 
-HistoriaZmian::HistoriaZmian(MenedzerBD& menedzerBD) : menedzerBD(menedzerBD) {
-    inicjalizujTabele();
+// Poprawne include'y zgodne z polską strukturą projektu
+#include "../database/menedzer_bd.h"
+#include "../database/dao/klient_dao.h" 
+#include "../database/dao/karnet_dao.h"
+#include "../services/uslugi_klienta.h"
+#include "../services/uslugi_karnetu.h"
+#include "../services/uslugi_raportow.h"
+#include "../utils/historia_zmian.h"
+#include "../models/klient.h"
+#include "../models/karnet.h"
+#include "../models/zajecia.h"
+#include "../models/rezerwacja.h"
+
+// Funkcja wyświetlająca menu główne
+void wyswietlMenu() {
+    std::cout << "\n===== System zarządzania siłownią =====\n";
+    std::cout << "=== KLIENCI ===\n";
+    std::cout << "1. Dodaj nowego klienta\n";
+    std::cout << "2. Wyświetl wszystkich klientów\n";
+    std::cout << "3. Wyszukaj klienta\n";
+    std::cout << "4. Usuń klienta\n";
+    std::cout << "\n=== KARNETY ===\n";
+    std::cout << "5. Dodaj karnet dla klienta\n";
+    std::cout << "6. Wyświetl karnety klienta\n";
+    std::cout << "7. Usuń karnet\n";
+    std::cout << "\n=== RAPORTY ===\n";
+    std::cout << "8. Raport aktywności klienta\n";
+    std::cout << "9. Raport finansowy\n";
+    std::cout << "10. Raport wszystkich klientów\n";
+    std::cout << "11. Raport karnetów\n";
+    std::cout << "\n=== HISTORIA I COFANIE ===\n";
+    std::cout << "12. Pokaż historię zmian\n";
+    std::cout << "13. Cofnij ostatnią operację\n";
+    std::cout << "14. Punkty przywracania\n";
+    std::cout << "15. Raport historii\n";
+    std::cout << "\n=== INNE ===\n";
+    std::cout << "16. Zajęcia i rezerwacje (w przygotowaniu)\n";
+    std::cout << "17. Import/Export danych (w przygotowaniu)\n";
+    std::cout << "\n0. Wyjście\n";
+    std::cout << "Wybierz opcję: ";
 }
 
-bool HistoriaZmian::inicjalizujTabele() {
-    try {
-        // Tabela logów operacji
-        std::string sqlLogi = R"(
-            CREATE TABLE IF NOT EXISTS logi_operacji (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                typ_operacji TEXT NOT NULL,
-                tabela TEXT NOT NULL,
-                id_rekordu INTEGER,
-                dane_przed TEXT,
-                dane_po TEXT,
-                uzytkownik TEXT DEFAULT 'system',
-                czas_operacji DATETIME DEFAULT CURRENT_TIMESTAMP,
-                opis TEXT
-            )
-        )";
-        
-        // Tabela punktów przywracania
-        std::string sqlPunkty = R"(
-            CREATE TABLE IF NOT EXISTS punkty_przywracania (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nazwa TEXT NOT NULL,
-                opis TEXT,
-                czas_utworzenia DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        )";
-        
-        return menedzerBD.wykonajSQL(sqlLogi) && menedzerBD.wykonajSQL(sqlPunkty);
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd inicjalizacji tabel historii: " << e.what() << std::endl;
-        return false;
+// === FUNKCJE DO ZARZĄDZANIA KLIENTAMI ===
+
+void dodajNowegoKlienta(UslugiKlienta& uslugiKlienta) {
+    std::cout << "\n=== Dodawanie nowego klienta ===\n";
+
+    std::string imie, nazwisko, email, telefon, dataUrodzenia, uwagi;
+
+    std::cin.ignore(1000, '\n');
+
+    bool poprawne = false;
+    while (!poprawne) {
+        std::cout << "Podaj imię: ";
+        std::getline(std::cin, imie);
+        if (imie.empty()) {
+            std::cout << "Imię nie może być puste. Spróbuj ponownie.\n";
+        }
+        else {
+            poprawne = true;
+        }
+    }
+
+    poprawne = false;
+    while (!poprawne) {
+        std::cout << "Podaj nazwisko: ";
+        std::getline(std::cin, nazwisko);
+        if (nazwisko.empty()) {
+            std::cout << "Nazwisko nie może być puste. Spróbuj ponownie.\n";
+        }
+        else {
+            poprawne = true;
+        }
+    }
+
+    std::cout << "Podaj email: ";
+    std::getline(std::cin, email);
+
+    std::cout << "Podaj telefon: ";
+    std::getline(std::cin, telefon);
+
+    std::cout << "Podaj datę urodzenia (RRRR-MM-DD): ";
+    std::getline(std::cin, dataUrodzenia);
+
+    std::cout << "Podaj uwagi: ";
+    std::getline(std::cin, uwagi);
+
+    std::cout << "\nPodsumowanie wprowadzonych danych:\n";
+    std::cout << "Imię: [" << imie << "]\n";
+    std::cout << "Nazwisko: [" << nazwisko << "]\n";
+    std::cout << "Email: [" << email << "]\n";
+    std::cout << "Telefon: [" << telefon << "]\n";
+    std::cout << "Data urodzenia: [" << dataUrodzenia << "]\n";
+    std::cout << "Uwagi: [" << uwagi << "]\n";
+
+    std::cout << "\nCzy dane są poprawne? (T/N): ";
+    char potwierdzenie;
+    std::cin >> potwierdzenie;
+
+    if (potwierdzenie == 'T' || potwierdzenie == 't') {
+        Klient klient(-1, imie, nazwisko, email, telefon, dataUrodzenia, "", uwagi);
+
+        try {
+            int id = uslugiKlienta.dodajKlienta(klient);
+            std::cout << "Dodano nowego klienta z ID: " << id << std::endl;
+        }
+        catch (const std::exception& e) {
+            std::cerr << "Błąd dodawania klienta: " << e.what() << std::endl;
+        }
+    }
+    else {
+        std::cout << "Anulowano dodawanie klienta.\n";
     }
 }
 
-int HistoriaZmian::logujOperacje(const std::string& typOperacji, const std::string& tabela, 
-                                int idRekordu, const std::string& danePrzed, const std::string& danePo,
-                                const std::string& opis) {
-    try {
-        std::string sql = R"(
-            INSERT INTO logi_operacji 
-            (typ_operacji, tabela, id_rekordu, dane_przed, dane_po, czas_operacji, opis)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        )";
-        
-        // Dla prostoty, używamy podstawowego SQL (w prawdziwej implementacji użylibyśmy prepared statements)
-        std::stringstream ssql;
-        ssql << "INSERT INTO logi_operacji "
-             << "(typ_operacji, tabela, id_rekordu, dane_przed, dane_po, czas_operacji, opis) "
-             << "VALUES ('"
-             << escapujJSON(typOperacji) << "', '"
-             << escapujJSON(tabela) << "', "
-             << idRekordu << ", '"
-             << escapujJSON(danePrzed) << "', '"
-             << escapujJSON(danePo) << "', '"
-             << pobierzAktualnyCzas() << "', '"
-             << escapujJSON(opis) << "')";
-        
-        if (menedzerBD.wykonajSQL(ssql.str())) {
-            // Pobierz ID ostatnio wstawionego rekordu
-            auto wyniki = menedzerBD.wykonajQuery("SELECT last_insert_rowid()");
-            if (!wyniki.empty() && !wyniki[0].wartosci.empty()) {
-                return std::stoi(wyniki[0].wartosci[0]);
-            }
-        }
-        
-        return -1;
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd logowania operacji: " << e.what() << std::endl;
-        return -1;
+void wyswietlWszystkichKlientow(UslugiKlienta& uslugiKlienta) {
+    auto klienci = uslugiKlienta.pobierzWszystkichKlientow();
+
+    if (klienci.empty()) {
+        std::cout << "Brak klientów w bazie danych." << std::endl;
+        return;
+    }
+
+    std::cout << "\n=== Lista klientów ===\n";
+    std::cout << std::left
+        << std::setw(5) << "ID"
+        << std::setw(30) << "Imię i nazwisko"
+        << std::setw(30) << "Email"
+        << std::setw(15) << "Telefon"
+        << std::setw(15) << "Data rejestracji"
+        << std::endl;
+    std::cout << std::string(95, '-') << std::endl;
+
+    for (const auto& klient : klienci) {
+        std::cout << std::left
+            << std::setw(5) << klient.pobierzId()
+            << std::setw(30) << klient.pobierzPelneNazwisko()
+            << std::setw(30) << klient.pobierzEmail()
+            << std::setw(15) << klient.pobierzTelefon()
+            << std::setw(15) << klient.pobierzDateRejestracji()
+            << std::endl;
     }
 }
 
-bool HistoriaZmian::cofnijOstatnia() {
-    try {
-        auto logi = pobierzHistorie(1);
-        if (logi.empty()) {
-            std::cout << "Brak operacji do cofnięcia." << std::endl;
-            return false;
-        }
-        
-        return cofnijOperacje(logi[0].id);
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd cofania ostatniej operacji: " << e.what() << std::endl;
-        return false;
+void wyszukajKlientow(UslugiKlienta& uslugiKlienta) {
+    std::string fraza;
+    std::cin.ignore();
+    std::cout << "Podaj frazę do wyszukania: ";
+    std::getline(std::cin, fraza);
+
+    auto klienci = uslugiKlienta.wyszukajKlientow(fraza);
+
+    if (klienci.empty()) {
+        std::cout << "Nie znaleziono klientów pasujących do frazy: " << fraza << std::endl;
+        return;
+    }
+
+    std::cout << "\n=== Wyniki wyszukiwania ===\n";
+    std::cout << std::left
+        << std::setw(5) << "ID"
+        << std::setw(30) << "Imię i nazwisko"
+        << std::setw(30) << "Email"
+        << std::setw(15) << "Telefon"
+        << std::endl;
+    std::cout << std::string(80, '-') << std::endl;
+
+    for (const auto& klient : klienci) {
+        std::cout << std::left
+            << std::setw(5) << klient.pobierzId()
+            << std::setw(30) << klient.pobierzPelneNazwisko()
+            << std::setw(30) << klient.pobierzEmail()
+            << std::setw(15) << klient.pobierzTelefon()
+            << std::endl;
     }
 }
 
-bool HistoriaZmian::cofnijOperacje(int idOperacji) {
-    try {
-        // Pobierz szczegóły operacji
-        std::stringstream sql;
-        sql << "SELECT * FROM logi_operacji WHERE id = " << idOperacji;
-        
-        auto wyniki = menedzerBD.wykonajQuery(sql.str());
-        if (wyniki.empty()) {
-            std::cout << "Nie znaleziono operacji o ID: " << idOperacji << std::endl;
-            return false;
-        }
-        
-        LogOperacji log = utworzLogZWiersza(wyniki[0]);
-        
-        bool sukces = false;
-        
-        if (log.typOperacji == "INSERT") {
-            sukces = cofnijInsert(log);
-        } else if (log.typOperacji == "UPDATE") {
-            sukces = cofnijUpdate(log);
-        } else if (log.typOperacji == "DELETE") {
-            sukces = cofnijDelete(log);
-        } else {
-            std::cout << "Nieznany typ operacji: " << log.typOperacji << std::endl;
-            return false;
-        }
-        
+void usunKlienta(UslugiKlienta& uslugiKlienta) {
+    int idKlienta;
+
+    std::cout << "Podaj ID klienta do usunięcia: ";
+    std::cin >> idKlienta;
+
+    auto klient = uslugiKlienta.pobierzKlientaPoId(idKlienta);
+    if (!klient) {
+        std::cout << "Nie znaleziono klienta o ID: " << idKlienta << std::endl;
+        return;
+    }
+
+    std::cout << "Czy na pewno chcesz usunąć klienta " << klient->pobierzPelneNazwisko()
+        << " (ID: " << idKlienta << ")? (T/N): ";
+    char potwierdzenie;
+    std::cin >> potwierdzenie;
+
+    if (potwierdzenie == 'T' || potwierdzenie == 't') {
+        bool sukces = uslugiKlienta.usunKlienta(idKlienta);
+
         if (sukces) {
-            // Zaloguj operację cofnięcia
-            logujOperacje("UNDO", log.tabela, log.idRekordu, log.danePo, log.danePrzed, 
-                         "Cofnięto operację ID: " + std::to_string(idOperacji));
-            
-            std::cout << "Pomyślnie cofnięto operację ID: " << idOperacji << std::endl;
+            std::cout << "Klient został usunięty." << std::endl;
         }
-        
-        return sukces;
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd cofania operacji: " << e.what() << std::endl;
-        return false;
+        else {
+            std::cout << "Wystąpił błąd podczas usuwania klienta." << std::endl;
+        }
+    }
+    else {
+        std::cout << "Anulowano usuwanie klienta." << std::endl;
     }
 }
 
-int HistoriaZmian::utworzPunktPrzywracania(const std::string& nazwa, const std::string& opis) {
+// === FUNKCJE DO ZARZĄDZANIA KARNETAMI ===
+
+void dodajKarnetDlaKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKarnetu) {
+    int idKlienta;
+    int typKarnetu;
+
+    std::cout << "Podaj ID klienta: ";
+    std::cin >> idKlienta;
+
+    auto klient = uslugiKlienta.pobierzKlientaPoId(idKlienta);
+    if (!klient) {
+        std::cout << "Nie znaleziono klienta o ID: " << idKlienta << std::endl;
+        return;
+    }
+
+    std::cout << "Klient: " << klient->pobierzPelneNazwisko() << std::endl;
+
+    std::cout << "Wybierz rodzaj karnetu:\n";
+    std::cout << "1. Miesięczny\n";
+    std::cout << "2. Kwartalny\n";
+    std::cout << "3. Roczny\n";
+    std::cout << "Wybierz opcję: ";
+    std::cin >> typKarnetu;
+
+    bool czyStudent = false;
+    char wyborStudenta;
+    std::cout << "Czy klient jest studentem? (T/N): ";
+    std::cin >> wyborStudenta;
+
+    if (wyborStudenta == 'T' || wyborStudenta == 't') {
+        czyStudent = true;
+    }
+
     try {
-        std::stringstream sql;
-        sql << "INSERT INTO punkty_przywracania (nazwa, opis, czas_utworzenia) "
-            << "VALUES ('"
-            << escapujJSON(nazwa) << "', '"
-            << escapujJSON(opis) << "', '"
-            << pobierzAktualnyCzas() << "')";
-        
-        if (menedzerBD.wykonajSQL(sql.str())) {
-            auto wyniki = menedzerBD.wykonajQuery("SELECT last_insert_rowid()");
-            if (!wyniki.empty() && !wyniki[0].wartosci.empty()) {
-                int id = std::stoi(wyniki[0].wartosci[0]);
-                std::cout << "Utworzono punkt przywracania \"" << nazwa << "\" (ID: " << id << ")" << std::endl;
-                return id;
-            }
+        Karnet karnet;
+        karnet.ustawIdKlienta(idKlienta);
+
+        switch (typKarnetu) {
+        case 1: {
+            karnet.ustawTyp(czyStudent ? "student_miesieczny" : "normalny_miesieczny");
+            karnet.ustawCene(czyStudent ? 80.0 : 120.0);
+            karnet.ustawDateRozpoczecia(Karnet::pobierzAktualnaDate());
+            karnet.ustawDateZakonczenia(Karnet::dodajDniDoData(Karnet::pobierzAktualnaDate(), 30));
+            break;
         }
-        
-        return -1;
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd tworzenia punktu przywracania: " << e.what() << std::endl;
-        return -1;
+        case 2: {
+            karnet.ustawTyp(czyStudent ? "student_kwartalny" : "normalny_kwartalny");
+            karnet.ustawCene(czyStudent ? 200.0 : 300.0);
+            karnet.ustawDateRozpoczecia(Karnet::pobierzAktualnaDate());
+            karnet.ustawDateZakonczenia(Karnet::dodajDniDoData(Karnet::pobierzAktualnaDate(), 90));
+            break;
+        }
+        case 3: {
+            karnet.ustawTyp(czyStudent ? "student_roczny" : "normalny_roczny");
+            karnet.ustawCene(czyStudent ? 600.0 : 1000.0);
+            karnet.ustawDateRozpoczecia(Karnet::pobierzAktualnaDate());
+            karnet.ustawDateZakonczenia(Karnet::dodajDniDoData(Karnet::pobierzAktualnaDate(), 365));
+            break;
+        }
+        default:
+            std::cout << "Nieprawidłowy wybór rodzaju karnetu." << std::endl;
+            return;
+        }
+
+        karnet.ustawCzyAktywny(true);
+
+        int id = uslugiKarnetu.dodajKarnet(karnet);
+        std::cout << "Dodano nowy karnet z ID: " << id << std::endl;
+        std::cout << "Termin ważności: od " << karnet.pobierzDateRozpoczecia()
+            << " do " << karnet.pobierzDateZakonczenia() << std::endl;
+        std::cout << "Cena: " << karnet.pobierzCene() << " zł" << std::endl;
+
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Błąd: " << e.what() << std::endl;
     }
 }
 
-bool HistoriaZmian::przywrocDoPunktu(int idPunktu) {
-    try {
-        // Pobierz informacje o punkcie przywracania
-        std::stringstream sql;
-        sql << "SELECT * FROM punkty_przywracania WHERE id = " << idPunktu;
-        
-        auto wyniki = menedzerBD.wykonajQuery(sql.str());
-        if (wyniki.empty()) {
-            std::cout << "Nie znaleziono punktu przywracania o ID: " << idPunktu << std::endl;
-            return false;
-        }
-        
-        PunktPrzywracania punkt = utworzPunktZWiersza(wyniki[0]);
-        
-        // Pobierz wszystkie operacje wykonane po utworzeniu punktu
-        std::stringstream sqlOperacje;
-        sqlOperacje << "SELECT * FROM logi_operacji "
-                   << "WHERE czas_operacji > '" << punkt.czasUtworzenia << "' "
-                   << "AND typ_operacji != 'UNDO' "
-                   << "ORDER BY id DESC";
-        
-        auto operacje = menedzerBD.wykonajQuery(sqlOperacje.str());
-        
-        std::cout << "Cofanie " << operacje.size() << " operacji do punktu \"" 
-                  << punkt.nazwa << "\"..." << std::endl;
-        
-        int liczbaCofnietych = 0;
-        
-        // Cofnij operacje w odwrotnej kolejności
-        for (const auto& wiersz : operacje) {
-            LogOperacji log = utworzLogZWiersza(wiersz);
-            
-            bool sukces = false;
-            if (log.typOperacji == "INSERT") {
-                sukces = cofnijInsert(log);
-            } else if (log.typOperacji == "UPDATE") {
-                sukces = cofnijUpdate(log);
-            } else if (log.typOperacji == "DELETE") {
-                sukces = cofnijDelete(log);
-            }
-            
-            if (sukces) {
-                liczbaCofnietych++;
-            } else {
-                std::cerr << "Błąd cofania operacji ID: " << log.id << std::endl;
-            }
-        }
-        
-        // Zaloguj przywrócenie
-        logujOperacje("RESTORE", "system", idPunktu, "", "", 
-                     "Przywrócono do punktu: " + punkt.nazwa + " (cofnięto " + 
-                     std::to_string(liczbaCofnietych) + " operacji)");
-        
-        std::cout << "Przywrócono do punktu \"" << punkt.nazwa 
-                  << "\". Cofnięto " << liczbaCofnietych << " operacji." << std::endl;
-        
-        return liczbaCofnietych > 0;
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd przywracania do punktu: " << e.what() << std::endl;
-        return false;
+void wyswietlKarnetyKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKarnetu) {
+    int idKlienta;
+
+    std::cout << "Podaj ID klienta: ";
+    std::cin >> idKlienta;
+
+    auto klient = uslugiKlienta.pobierzKlientaPoId(idKlienta);
+    if (!klient) {
+        std::cout << "Nie znaleziono klienta o ID: " << idKlienta << std::endl;
+        return;
+    }
+
+    auto karnety = uslugiKarnetu.pobierzKarnetyKlienta(idKlienta);
+
+    if (karnety.empty()) {
+        std::cout << "Klient nie ma żadnych karnetów." << std::endl;
+        return;
+    }
+
+    std::cout << "\n=== Karnety klienta: " << klient->pobierzPelneNazwisko() << " ===\n";
+    std::cout << std::left
+        << std::setw(5) << "ID"
+        << std::setw(20) << "Typ"
+        << std::setw(15) << "Od"
+        << std::setw(15) << "Do"
+        << std::setw(10) << "Cena"
+        << std::setw(10) << "Aktywny"
+        << std::endl;
+    std::cout << std::string(75, '-') << std::endl;
+
+    for (const auto& karnet : karnety) {
+        std::cout << std::left
+            << std::setw(5) << karnet.pobierzId()
+            << std::setw(20) << karnet.pobierzTyp()
+            << std::setw(15) << karnet.pobierzDateRozpoczecia()
+            << std::setw(15) << karnet.pobierzDateZakonczenia()
+            << std::setw(10) << karnet.pobierzCene()
+            << std::setw(10) << (karnet.pobierzCzyAktywny() ? "Tak" : "Nie")
+            << std::endl;
     }
 }
 
-std::vector<LogOperacji> HistoriaZmian::pobierzHistorie(int limit) {
-    std::vector<LogOperacji> historia;
-    
-    try {
-        std::stringstream sql;
-        sql << "SELECT * FROM logi_operacji ORDER BY id DESC";
-        if (limit > 0) {
-            sql << " LIMIT " << limit;
-        }
-        
-        auto wyniki = menedzerBD.wykonajQuery(sql.str());
-        
-        for (const auto& wiersz : wyniki) {
-            historia.push_back(utworzLogZWiersza(wiersz));
-        }
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd pobierania historii: " << e.what() << std::endl;
-    }
-    
-    return historia;
-}
+void usunKarnet(UslugiKarnetu& uslugiKarnetu) {
+    int idKarnetu;
 
-std::vector<LogOperacji> HistoriaZmian::pobierzHistorieTabeli(const std::string& tabela, int limit) {
-    std::vector<LogOperacji> historia;
-    
-    try {
-        std::stringstream sql;
-        sql << "SELECT * FROM logi_operacji WHERE tabela = '" << escapujJSON(tabela) 
-            << "' ORDER BY id DESC";
-        if (limit > 0) {
-            sql << " LIMIT " << limit;
-        }
-        
-        auto wyniki = menedzerBD.wykonajQuery(sql.str());
-        
-        for (const auto& wiersz : wyniki) {
-            historia.push_back(utworzLogZWiersza(wiersz));
-        }
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd pobierania historii tabeli: " << e.what() << std::endl;
-    }
-    
-    return historia;
-}
+    std::cout << "Podaj ID karnetu do usunięcia: ";
+    std::cin >> idKarnetu;
 
-std::vector<PunktPrzywracania> HistoriaZmian::pobierzPunktyPrzywracania() {
-    std::vector<PunktPrzywracania> punkty;
-    
-    try {
-        auto wyniki = menedzerBD.wykonajQuery("SELECT * FROM punkty_przywracania ORDER BY id DESC");
-        
-        for (const auto& wiersz : wyniki) {
-            punkty.push_back(utworzPunktZWiersza(wiersz));
-        }
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd pobierania punktów przywracania: " << e.what() << std::endl;
+    auto karnet = uslugiKarnetu.pobierzKarnetPoId(idKarnetu);
+    if (!karnet) {
+        std::cout << "Nie znaleziono karnetu o ID: " << idKarnetu << std::endl;
+        return;
     }
-    
-    return punkty;
-}
 
-std::string HistoriaZmian::generujRaportHistorii() {
-    std::stringstream raport;
-    
-    raport << "========================================\n";
-    raport << "       RAPORT HISTORII ZMIAN            \n";
-    raport << "========================================\n";
-    raport << "Data wygenerowania: " << pobierzAktualnyCzas() << "\n";
-    raport << "----------------------------------------\n\n";
-    
-    // Statystyki ogólne
-    int wszystkieOperacje = policzOperacje();
-    int operacjeInsert = policzOperacje("INSERT");
-    int operacjeUpdate = policzOperacje("UPDATE");
-    int operacjeDelete = policzOperacje("DELETE");
-    int operacjeUndo = policzOperacje("UNDO");
-    
-    raport << "STATYSTYKI OGÓLNE:\n";
-    raport << "==================\n";
-    raport << "• Łączna liczba operacji: " << wszystkieOperacje << "\n";
-    raport << "• Dodane rekordy (INSERT): " << operacjeInsert << "\n";
-    raport << "• Zaktualizowane rekordy (UPDATE): " << operacjeUpdate << "\n";
-    raport << "• Usunięte rekordy (DELETE): " << operacjeDelete << "\n";
-    raport << "• Cofnięte operacje (UNDO): " << operacjeUndo << "\n\n";
-    
-    // Ostatnie operacje
-    auto ostatnieOperacje = pobierzHistorie(10);
-    
-    raport << "OSTATNIE 10 OPERACJI:\n";
-    raport << "=====================\n";
-    
-    if (ostatnieOperacje.empty()) {
-        raport << "Brak operacji w historii.\n\n";
-    } else {
-        for (const auto& operacja : ostatnieOperacje) {
-            raport << "• ID: " << operacja.id 
-                   << " | " << operacja.typOperacji 
-                   << " | " << operacja.tabela;
-            
-            if (operacja.idRekordu > 0) {
-                raport << " | Rekord ID: " << operacja.idRekordu;
-            }
-            
-            raport << " | " << operacja.czasOperacji;
-            
-            if (!operacja.opis.empty()) {
-                raport << " | " << operacja.opis;
-            }
-            
-            raport << "\n";
-        }
-        raport << "\n";
-    }
-    
-    // Punkty przywracania
-    auto punkty = pobierzPunktyPrzywracania();
-    
-    raport << "PUNKTY PRZYWRACANIA:\n";
-    raport << "====================\n";
-    
-    if (punkty.empty()) {
-        raport << "Brak punktów przywracania.\n\n";
-    } else {
-        for (const auto& punkt : punkty) {
-            raport << "• ID: " << punkt.id 
-                   << " | \"" << punkt.nazwa << "\""
-                   << " | " << punkt.czasUtworzenia;
-            
-            if (!punkt.opis.empty()) {
-                raport << " | " << punkt.opis;
-            }
-            
-            raport << "\n";
-        }
-        raport << "\n";
-    }
-    
-    raport << "========================================\n";
-    raport << "Koniec raportu\n";
-    
-    return raport.str();
-}
+    std::cout << "Czy na pewno chcesz usunąć karnet ID: " << idKarnetu
+        << " (typ: " << karnet->pobierzTyp() << ")? (T/N): ";
+    char potwierdzenie;
+    std::cin >> potwierdzenie;
 
-bool HistoriaZmian::wyczyscStaraHistorie(int dniDoZachowania) {
-    try {
-        std::stringstream sql;
-        sql << "DELETE FROM logi_operacji "
-            << "WHERE czas_operacji < datetime('now', '-" << dniDoZachowania << " days')";
-        
-        bool sukces = menedzerBD.wykonajSQL(sql.str());
-        
+    if (potwierdzenie == 'T' || potwierdzenie == 't') {
+        bool sukces = uslugiKarnetu.usunKarnet(idKarnetu);
+
         if (sukces) {
-            logujOperacje("CLEANUP", "logi_operacji", 0, "", "", 
-                         "Wyczyszczono historię starszą niż " + std::to_string(dniDoZachowania) + " dni");
+            std::cout << "Karnet został usunięty." << std::endl;
         }
-        
-        return sukces;
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd czyszczenia historii: " << e.what() << std::endl;
-        return false;
-    }
-}
-
-// Metody pomocnicze
-
-std::string HistoriaZmian::pobierzAktualnyCzas() {
-    auto t = std::time(nullptr);
-    auto tm = *std::localtime(&t);
-    std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
-    return oss.str();
-}
-
-std::string HistoriaZmian::escapujJSON(const std::string& str) {
-    std::string escaped;
-    escaped.reserve(str.size());
-    
-    for (char c : str) {
-        switch (c) {
-            case '"': escaped += "\\\""; break;
-            case '\\': escaped += "\\\\"; break;
-            case '\n': escaped += "\\n"; break;
-            case '\r': escaped += "\\r"; break;
-            case '\t': escaped += "\\t"; break;
-            case '\'': escaped += "''"; break; // Escape dla SQL
-            default: escaped += c; break;
+        else {
+            std::cout << "Wystąpił błąd podczas usuwania karnetu." << std::endl;
         }
     }
-    
-    return escaped;
-}
-
-LogOperacji HistoriaZmian::utworzLogZWiersza(const WierszBD& wiersz) {
-    LogOperacji log;
-    
-    if (wiersz.wartosci.size() >= 9) {
-        log.id = std::stoi(wiersz.wartosci[0]);
-        log.typOperacji = wiersz.wartosci[1];
-        log.tabela = wiersz.wartosci[2];
-        log.idRekordu = wiersz.wartosci[3].empty() ? 0 : std::stoi(wiersz.wartosci[3]);
-        log.danePrzed = wiersz.wartosci[4];
-        log.danePo = wiersz.wartosci[5];
-        log.uzytkownik = wiersz.wartosci[6];
-        log.czasOperacji = wiersz.wartosci[7];
-        log.opis = wiersz.wartosci[8];
+    else {
+        std::cout << "Anulowano usuwanie karnetu." << std::endl;
     }
-    
-    return log;
 }
 
-PunktPrzywracania HistoriaZmian::utworzPunktZWiersza(const WierszBD& wiersz) {
-    PunktPrzywracania punkt;
-    
-    if (wiersz.wartosci.size() >= 4) {
-        punkt.id = std::stoi(wiersz.wartosci[0]);
-        punkt.nazwa = wiersz.wartosci[1];
-        punkt.opis = wiersz.wartosci[2];
-        punkt.czasUtworzenia = wiersz.wartosci[3];
-    }
-    
-    return punkt;
-}
+// === FUNKCJE DO RAPORTÓW ===
 
-int HistoriaZmian::policzOperacje(const std::string& typOperacji) {
+void menuRaportow(UslugiRaportow& uslugiRaportow) {
+    int wybor;
+
+    std::cout << "\n=== MENU RAPORTÓW ===\n";
+    std::cout << "1. Raport aktywności klienta\n";
+    std::cout << "2. Raport finansowy\n";
+    std::cout << "3. Raport wszystkich klientów\n";
+    std::cout << "4. Raport karnetów\n";
+    std::cout << "0. Powrót\n";
+    std::cout << "Wybierz opcję: ";
+    std::cin >> wybor;
+
+    std::string raport;
+    std::string nazwaPliku;
+
     try {
-        std::string sql = "SELECT COUNT(*) FROM logi_operacji";
-        if (!typOperacji.empty()) {
-            sql += " WHERE typ_operacji = '" + escapujJSON(typOperacji) + "'";
+        switch (wybor) {
+        case 1: {
+            int idKlienta;
+            std::string dataOd, dataDo;
+
+            std::cout << "Podaj ID klienta: ";
+            std::cin >> idKlienta;
+
+            std::cin.ignore();
+            std::cout << "Podaj datę od (RRRR-MM-DD) lub Enter dla domyślnej: ";
+            std::getline(std::cin, dataOd);
+            if (dataOd.empty()) dataOd = "2024-01-01";
+
+            std::cout << "Podaj datę do (RRRR-MM-DD) lub Enter dla domyślnej: ";
+            std::getline(std::cin, dataDo);
+            if (dataDo.empty()) dataDo = "2025-12-31";
+
+            raport = uslugiRaportow.generujRaportAktywnosci(idKlienta, dataOd, dataDo);
+            nazwaPliku = "raport_aktywnosci_klient_" + std::to_string(idKlienta);
+            break;
         }
-        
-        auto wyniki = menedzerBD.wykonajQuery(sql);
-        if (!wyniki.empty() && !wyniki[0].wartosci.empty()) {
-            return std::stoi(wyniki[0].wartosci[0]);
+        case 2: {
+            std::string miesiac;
+            std::cin.ignore();
+            std::cout << "Podaj miesiąc (RRRR-MM) lub Enter dla bieżącego: ";
+            std::getline(std::cin, miesiac);
+            if (miesiac.empty()) miesiac = "2025-05";
+
+            raport = uslugiRaportow.generujRaportFinansowy(miesiac);
+            nazwaPliku = "raport_finansowy_" + miesiac;
+            break;
         }
-        
-        return 0;
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd liczenia operacji: " << e.what() << std::endl;
-        return 0;
+        case 3: {
+            raport = uslugiRaportow.generujRaportKlientow();
+            nazwaPliku = "raport_klientow";
+            break;
+        }
+        case 4: {
+            raport = uslugiRaportow.generujRaportKarnetow();
+            nazwaPliku = "raport_karnetow";
+            break;
+        }
+        case 0:
+            return;
+        default:
+            std::cout << "Nieprawidłowy wybór.\n";
+            return;
+        }
+
+        // Wyświetl raport
+        std::cout << "\n" << raport << std::endl;
+
+        // Zapytaj o zapis do pliku
+        char zapisac;
+        std::cout << "Czy zapisać raport do pliku? (T/N): ";
+        std::cin >> zapisac;
+
+        if (zapisac == 'T' || zapisac == 't') {
+            std::cout << "\nWybierz format:\n";
+            std::cout << "1. TXT\n";
+            std::cout << "2. HTML\n";
+            std::cout << "Wybierz: ";
+
+            int formatWybor;
+            std::cin >> formatWybor;
+
+            std::string format = (formatWybor == 2) ? "HTML" : "TXT";
+            std::string rozszerzenie = (formatWybor == 2) ? ".html" : ".txt";
+            std::string sciezka = nazwaPliku + rozszerzenie;
+
+            if (uslugiRaportow.zapisRaportDoPliku(raport, format, sciezka)) {
+                std::cout << "Raport zapisano do pliku: " << sciezka << std::endl;
+            }
+            else {
+                std::cout << "Błąd zapisu raportu do pliku." << std::endl;
+            }
+        }
+
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Błąd generowania raportu: " << e.what() << std::endl;
     }
 }
 
-// Metody cofania operacji (uproszczone - w rzeczywistości wymagałyby pełnej implementacji)
+// === FUNKCJE DO HISTORII ZMIAN ===
 
-bool HistoriaZmian::cofnijInsert(const LogOperacji& log) {
+void pokazHistorieZmian(HistoriaZmian& historia) {
+    std::cout << "\n=== HISTORIA ZMIAN ===\n";
+
+    int limit;
+    std::cout << "Ile ostatnich operacji pokazać (0 = wszystkie): ";
+    std::cin >> limit;
+
+    auto logi = historia.pobierzHistorie(limit > 0 ? limit : 0);
+
+    if (logi.empty()) {
+        std::cout << "\nBrak operacji w historii.\n";
+        return;
+    }
+
+    std::cout << "\nOSTATNIE OPERACJE:\n";
+    std::cout << std::string(80, '=') << "\n";
+
+    for (const auto& log : logi) {
+        std::cout << "ID: " << log.id
+            << " | " << log.typOperacji
+            << " | " << log.tabela;
+
+        if (log.idRekordu > 0) {
+            std::cout << " | Rekord: " << log.idRekordu;
+        }
+
+        std::cout << "\n    Czas: " << log.czasOperacji;
+
+        if (!log.opis.empty()) {
+            std::cout << "\n    Opis: " << log.opis;
+        }
+
+        std::cout << "\n" << std::string(80, '-') << "\n";
+    }
+}
+
+void cofnijOperacje(HistoriaZmian& historia) {
+    std::cout << "\n=== COFANIE OPERACJI ===\n";
+
+    char wybor;
+    std::cout << "1. Cofnij ostatnią operację\n";
+    std::cout << "2. Cofnij konkretną operację (podaj ID)\n";
+    std::cout << "Wybierz opcję (1/2): ";
+    std::cin >> wybor;
+
+    if (wybor == '1') {
+        if (historia.cofnijOstatnia()) {
+            std::cout << "Operacja została cofnięta.\n";
+        }
+        else {
+            std::cout << "Nie udało się cofnąć operacji.\n";
+        }
+    }
+    else if (wybor == '2') {
+        int idOperacji;
+        std::cout << "Podaj ID operacji do cofnięcia: ";
+        std::cin >> idOperacji;
+
+        if (historia.cofnijOperacje(idOperacji)) {
+            std::cout << "Operacja została cofnięta.\n";
+        }
+        else {
+            std::cout << "Nie udało się cofnąć operacji.\n";
+        }
+    }
+    else {
+        std::cout << "Nieprawidłowy wybór.\n";
+    }
+}
+
+void menuPunktowPrzywracania(HistoriaZmian& historia) {
+    int wybor;
+
+    std::cout << "\n=== PUNKTY PRZYWRACANIA ===\n";
+    std::cout << "1. Pokaż punkty przywracania\n";
+    std::cout << "2. Utwórz nowy punkt przywracania\n";
+    std::cout << "3. Przywróć do punktu\n";
+    std::cout << "4. Usuń punkt przywracania\n";
+    std::cout << "0. Powrót\n";
+    std::cout << "Wybierz opcję: ";
+    std::cin >> wybor;
+
     try {
-        // Usuń rekord, który został dodany
-        std::stringstream sql;
-        sql << "DELETE FROM " << log.tabela << " WHERE id = " << log.idRekordu;
-        
-        return menedzerBD.wykonajSQL(sql.str());
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd cofania INSERT: " << e.what() << std::endl;
-        return false;
+        switch (wybor) {
+        case 1: {
+            auto punkty = historia.pobierzPunktyPrzywracania();
+
+            if (punkty.empty()) {
+                std::cout << "\nBrak punktów przywracania.\n";
+            }
+            else {
+                std::cout << "\nPUNKTY PRZYWRACANIA:\n";
+                std::cout << std::string(60, '=') << "\n";
+
+                for (const auto& punkt : punkty) {
+                    std::cout << "ID: " << punkt.id
+                        << " | \"" << punkt.nazwa << "\"\n";
+                    std::cout << "Utworzony: " << punkt.czasUtworzenia << "\n";
+
+                    if (!punkt.opis.empty()) {
+                        std::cout << "Opis: " << punkt.opis << "\n";
+                    }
+
+                    std::cout << std::string(60, '-') << "\n";
+                }
+            }
+            break;
+        }
+        case 2: {
+            std::string nazwa, opis;
+
+            std::cin.ignore();
+            std::cout << "Podaj nazwę punktu przywracania: ";
+            std::getline(std::cin, nazwa);
+
+            std::cout << "Podaj opis (opcjonalny): ";
+            std::getline(std::cin, opis);
+
+            int id = historia.utworzPunktPrzywracania(nazwa, opis);
+            if (id > 0) {
+                std::cout << "Utworzono punkt przywracania z ID: " << id << std::endl;
+            }
+            else {
+                std::cout << "Błąd tworzenia punktu przywracania.\n";
+            }
+            break;
+        }
+        case 3: {
+            int idPunktu;
+            std::cout << "Podaj ID punktu przywracania: ";
+            std::cin >> idPunktu;
+
+            std::cout << "UWAGA: Ta operacja cofnie wszystkie zmiany wykonane po utworzeniu punktu!\n";
+            std::cout << "Czy na pewno kontynuować? (T/N): ";
+
+            char potwierdzenie;
+            std::cin >> potwierdzenie;
+
+            if (potwierdzenie == 'T' || potwierdzenie == 't') {
+                if (historia.przywrocDoPunktu(idPunktu)) {
+                    std::cout << "Pomyślnie przywrócono do punktu.\n";
+                }
+                else {
+                    std::cout << "Błąd przywracania do punktu.\n";
+                }
+            }
+            else {
+                std::cout << "Anulowano operację.\n";
+            }
+            break;
+        }
+        case 4: {
+            int idPunktu;
+            std::cout << "Podaj ID punktu do usunięcia: ";
+            std::cin >> idPunktu;
+
+            if (historia.usunPunktPrzywracania(idPunktu)) {
+                std::cout << "Punkt przywracania został usunięty.\n";
+            }
+            else {
+                std::cout << "Błąd usuwania punktu przywracania.\n";
+            }
+            break;
+        }
+        case 0:
+            return;
+        default:
+            std::cout << "Nieprawidłowy wybór.\n";
+            break;
+        }
+
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Błąd: " << e.what() << std::endl;
     }
 }
 
-bool HistoriaZmian::cofnijUpdate(const LogOperacji& log) {
-    // UWAGA: To jest uproszczona implementacja
-    // W prawdziwej aplikacji trzeba by parsować JSON i przywracać wszystkie pola
-    
+void pokazRaportHistorii(HistoriaZmian& historia) {
+    std::cout << "\n=== GENEROWANIE RAPORTU HISTORII ===\n";
+
     try {
-        std::cout << "Cofanie UPDATE dla tabeli " << log.tabela 
-                  << ", rekord ID: " << log.idRekordu << std::endl;
-        std::cout << "UWAGA: Funkcja cofania UPDATE wymaga dalszej implementacji" << std::endl;
-        
-        // Tutaj powinno być parsowanie JSON z danePrzed i przywracanie wszystkich pól
-        return true; // Tymczasowo zwracamy true
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd cofania UPDATE: " << e.what() << std::endl;
-        return false;
+        std::string raport = historia.generujRaportHistorii();
+        std::cout << raport << std::endl;
+
+        char zapisac;
+        std::cout << "Czy zapisać raport do pliku? (T/N): ";
+        std::cin >> zapisac;
+
+        if (zapisac == 'T' || zapisac == 't') {
+            std::string sciezka = "raport_historii.txt";
+            std::ofstream plik(sciezka);
+
+            if (plik.is_open()) {
+                plik << raport;
+                plik.close();
+                std::cout << "Raport zapisano do pliku: " << sciezka << std::endl;
+            }
+            else {
+                std::cout << "Błąd zapisu raportu do pliku.\n";
+            }
+        }
+
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Błąd generowania raportu historii: " << e.what() << std::endl;
     }
 }
 
-bool HistoriaZmian::cofnijDelete(const LogOperacji& log) {
+// === FUNKCJE POMOCNICZE ===
+
+void funkcjaWPrzygotowaniu(const std::string& nazwaFunkcji) {
+    std::cout << "\n=== " << nazwaFunkcji << " ===\n";
+    std::cout << "Ta funkcja jest w przygotowaniu.\n";
+    std::cout << "Będzie dostępna w następnej wersji systemu.\n\n";
+    std::cout << "Obecne możliwości:\n";
+    std::cout << "- Pełne zarządzanie klientami (dodaj, wyświetl, wyszukaj, usuń)\n";
+    std::cout << "- Pełne zarządzanie karnetami (dodaj, wyświetl, usuń)\n";
+    std::cout << "- Import/Export danych (CSV, JSON)\n\n";
+    std::cout << "W przygotowaniu:\n";
+    std::cout << "- Zarządzanie zajęciami grupowymi\n";
+    std::cout << "- System rezerwacji\n";
+    std::cout << "- Generowanie raportów\n";
+    std::cout << "- Powiadomienia o wygasających karnetach\n";
+}
+
+// === FUNKCJA MAIN ===
+
+int main() {
+    // Ustawienia Windows - polskie znaki i kodowanie
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+    system("chcp 65001 >nul"); // Ustawienie UTF-8
+
+    // Ustawienie tytułu okna konsoli
+    SetConsoleTitleA("System Zarządzania Siłownią v1.0");
+
+    std::cout << "╔══════════════════════════════════════════════════════════════╗\n";
+    std::cout << "║          SYSTEM ZARZĄDZANIA SIŁOWNIĄ - WINDOWS               ║\n";
+    std::cout << "╚══════════════════════════════════════════════════════════════╝\n";
+    std::cout << "🏋️‍♂️ Witamy w profesjonalnym systemie zarządzania siłownią!\n\n";
+
     try {
-        std::cout << "Cofanie DELETE dla tabeli " << log.tabela 
-                  << ", rekord ID: " << log.idRekordu << std::endl;
-        std::cout << "UWAGA: Funkcja cofania DELETE wymaga dalszej implementacji" << std::endl;
-        
-        // Tutaj powinno być parsowanie JSON z danePrzed i odtworzenie rekordu
-        return true; // Tymczasowo zwracamy true
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Błąd cofania DELETE: " << e.what() << std::endl;
-        return false;
+        // Inicjalizacja systemu zarządzania bazą danych
+        std::cout << "Inicjalizacja bazy danych...\n";
+        MenedzerBD menedzerBD("silownia.db");
+
+        // Inicjalizacja DAO
+        std::cout << "Inicjalizacja warstwy dostępu do danych...\n";
+        KlientDAO klientDAO(menedzerBD);
+        KarnetDAO karnetDAO(menedzerBD);
+
+        // Inicjalizacja serwisów
+        std::cout << "Inicjalizacja serwisów biznesowych...\n";
+        UslugiKlienta uslugiKlienta(klientDAO);
+        UslugiKarnetu uslugiKarnetu(karnetDAO);
+        UslugiRaportow uslugiRaportow(uslugiKlienta, uslugiKarnetu);
+        HistoriaZmian historia(menedzerBD);
+
+        std::cout << "System został pomyślnie zainicjalizowany!\n";
+
+        int wybor;
+
+        do {
+            wyswietlMenu();
+            std::cin >> wybor;
+
+            // Sprawdzanie poprawności wejścia
+            if (std::cin.fail()) {
+                std::cin.clear();
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                std::cout << "Nieprawidłowy wybór. Spróbuj ponownie.\n";
+                continue;
+            }
+
+            switch (wybor) {
+            case 1:
+                dodajNowegoKlienta(uslugiKlienta);
+                break;
+            case 2:
+                wyswietlWszystkichKlientow(uslugiKlienta);
+                break;
+            case 3:
+                wyszukajKlientow(uslugiKlienta);
+                break;
+            case 4:
+                usunKlienta(uslugiKlienta);
+                break;
+            case 5:
+                dodajKarnetDlaKlienta(uslugiKlienta, uslugiKarnetu);
+                break;
+            case 6:
+                wyswietlKarnetyKlienta(uslugiKlienta, uslugiKarnetu);
+                break;
+            case 7:
+                usunKarnet(uslugiKarnetu);
+                break;
+            case 8:
+            case 9:
+            case 10:
+            case 11:
+                menuRaportow(uslugiRaportow);
+                break;
+            case 12:
+                pokazHistorieZmian(historia);
+                break;
+            case 13:
+                cofnijOperacje(historia);
+                break;
+            case 14:
+                menuPunktowPrzywracania(historia);
+                break;
+            case 15:
+                pokazRaportHistorii(historia);
+                break;
+            case 16:
+                funkcjaWPrzygotowaniu("Zarządzanie zajęciami i rezerwacjami");
+                break;
+            case 17:
+                funkcjaWPrzygotowaniu("Import/Export danych");
+                break;
+            case 0:
+                std::cout << "\n=== Zamykanie systemu ===\n";
+                std::cout << "Dziękujemy za korzystanie z systemu zarządzania siłownią!\n";
+                std::cout << "Do widzenia!\n";
+                break;
+            default:
+                std::cout << "Nieprawidłowy wybór. Wybierz opcję od 0 do 17.\n";
+                break;
+            }
+
+            if (wybor != 0) {
+                std::cout << "\nNaciśnij Enter, aby kontynuować...";
+                std::cin.ignore();
+                std::cin.get();
+            }
+
+        } while (wybor != 0);
+
     }
-}
+    catch (const std::exception& e) {
+        std::cerr << "\n=== BŁĄD KRYTYCZNY ===\n";
+        std::cerr << "Wystąpił błąd podczas działania systemu: " << e.what() << std::endl;
+        std::cerr << "\nSystem zostanie zamknięty. Skontaktuj się z administratorem.\n";
 
-// Implementacja klasy AutoLogger
+        std::cout << "\nNaciśnij Enter, aby zamknąć...";
+        std::cin.ignore();
+        std::cin.get();
 
-AutoLogger::AutoLogger(HistoriaZmian& historia, const std::string& tabela, int idRekordu, const std::string& danePrzed)
-    : historia(historia), tabela(tabela), idRekordu(idRekordu), danePrzed(danePrzed), 
-      typOperacji("UPDATE"), anulowano(false) {
-}
-
-AutoLogger::~AutoLogger() {
-    if (!anulowano && !danePo.empty()) {
-        historia.logujOperacje(typOperacji, tabela, idRekordu, danePrzed, danePo, opis);
+        return 1;
     }
-}
 
-void AutoLogger::ustawDanePo(const std::string& danePo) {
-    this->danePo = danePo;
-}
-
-void AutoLogger::ustawTypOperacji(const std::string& typ) {
-    this->typOperacji = typ;
-}
-
-void AutoLogger::ustawOpis(const std::string& opis) {
-    this->opis = opis;
-}
-
-void AutoLogger::anuluj() {
-    this->anulowano = true;
+    return 0;
 }
