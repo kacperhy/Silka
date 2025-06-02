@@ -1,4 +1,3 @@
-// database/menedzer_bd.cpp
 #include "menedzer_bd.h"
 #include <iostream>
 

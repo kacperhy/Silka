@@ -1,4 +1,3 @@
-// database/dao/karnet_dao.cpp
 #include "karnet_dao.h"
 #include <sstream>
 

@@ -1,4 +1,3 @@
-// utils/system_config.cpp
 #include "../config/system_config.h"
 #include <fstream>
 #include <sstream>

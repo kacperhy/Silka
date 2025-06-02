@@ -1,4 +1,3 @@
-// database/dao/zajecia_dao.h
 #ifndef ZAJECIA_DAO_H
 #define ZAJECIA_DAO_H
 

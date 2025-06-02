@@ -1,5 +1,6 @@
 #define NOMINMAX
-// tests/main.cpp
+#define _CRT_SECURE_NO_WARNINGS 
+
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -9,8 +10,10 @@
 #include <iomanip>
 #include <fstream>
 #include <vector>
+#include <filesystem>  
+#include <ctime>       
 
-// Poprawne include'y zgodne z polską strukturą projektu
+
 #include "../database/menedzer_bd.h"
 #include "../database/dao/klient_dao.h" 
 #include "../database/dao/karnet_dao.h"
@@ -26,39 +29,33 @@
 #include "../utils/eksport_danych.h"
 #include "../utils/import_danych.h"
 
-// === WSZYSTKIE DEKLARACJE FUNKCJI ===
 
-// Funkcje do zarządzania klientami
 void dodajNowegoKlienta(UslugiKlienta& uslugiKlienta);
 void wyswietlWszystkichKlientow(UslugiKlienta& uslugiKlienta);
 void wyszukajKlientow(UslugiKlienta& uslugiKlienta);
 void usunKlienta(UslugiKlienta& uslugiKlienta);
 
-// Funkcje do zarządzania karnetami
+
 void dodajKarnetDlaKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKarnetu);
 void wyswietlKarnetyKlienta(UslugiKlienta& uslugiKlienta, UslugiKarnetu& uslugiKarnetu);
 void usunKarnet(UslugiKarnetu& uslugiKarnetu);
 
-// Funkcje do zarządzania zajęciami
+
 void dodajZajecia(UslugiZajec& uslugiZajec);
 void wyswietlWszystkieZajecia(UslugiZajec& uslugiZajec);
 void zarzadzajRezerwacjami(UslugiZajec& uslugiZajec, UslugiKlienta& uslugiKlienta);
 
-// Funkcje raportów
+
 void generujRaportAktywnosci(UslugiRaportow& uslugiRaportow);
 void generujRaportPopularnosci(UslugiRaportow& uslugiRaportow);
 void generujRaportFinansowy(UslugiRaportow& uslugiRaportow);
 
-// Funkcje eksportu
+
 void eksportujDane(EksportDanych& eksportDanych);
 
-// Funkcje pomocnicze
-void funkcjaWPrzygotowaniu(const std::string& nazwaFunkcji);
 
-// Funkcja wyświetlająca menu główne
 void wyswietlMenu();
 
-// === IMPLEMENTACJE FUNKCJI ===
 
 void wyswietlMenu() {
     std::cout << "\n===== System zarządzania siłownią =====\n";
@@ -655,36 +652,186 @@ void generujRaportFinansowy(UslugiRaportow& uslugiRaportow) {
     }
 }
 
+// Funkcja do automatycznego tworzenia i zwracania ścieżki eksportu
+std::string pobierzSciezkeEksportu() {
+    // Nazwa folderu eksportu
+    std::string folderEksport = "eksport";
+
+    try {
+        // Sprawdź czy folder eksport istnieje
+        if (!std::filesystem::exists(folderEksport)) {
+            // Jeśli nie istnieje, utwórz go
+            bool sukces = std::filesystem::create_directory(folderEksport);
+
+            if (sukces) {
+                std::cout << "✓ Utworzono folder: " << folderEksport << "/" << std::endl;
+            }
+            else {
+                std::cerr << " Nie udało się utworzyć folderu: " << folderEksport << std::endl;
+                // Fallback - używaj bieżącego katalogu
+                return ".";
+            }
+        }
+
+        // Sprawdź czy to rzeczywiście katalog
+        if (!std::filesystem::is_directory(folderEksport)) {
+            std::cerr << folderEksport << " istnieje ale nie jest katalogiem!" << std::endl;
+            return ".";
+        }
+
+        // Sprawdź uprawnienia zapisu (opcjonalnie)
+        std::filesystem::perms permissions = std::filesystem::status(folderEksport).permissions();
+
+        return folderEksport;
+
+    }
+    catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << " Błąd systemu plików: " << e.what() << std::endl;
+        std::cerr << "   Używam bieżącego katalogu jako fallback" << std::endl;
+        return ".";
+    }
+    catch (const std::exception& e) {
+        std::cerr << " Nieoczekiwany błąd: " << e.what() << std::endl;
+        return ".";
+    }
+}
+
+//funkcja do generowania timestampu (daty i czasu)
+std::string generujTimestamp() {
+    auto now = std::time(nullptr);
+    auto tm = *std::localtime(&now);
+    std::ostringstream timestamp;
+    timestamp << std::put_time(&tm, "%Y%m%d_%H%M%S");
+    return timestamp.str();
+}
+
+// Funkcja pomocnicza do tworzenia pełnej ścieżki pliku
+std::string utworzSciezkePliku(const std::string& folder, const std::string& nazwaBase,
+    const std::string& rozszerzenie, bool dodajTimestamp = true) {
+    std::string timestamp = dodajTimestamp ? "_" + generujTimestamp() : "";
+    return folder + "/" + nazwaBase + timestamp + "." + rozszerzenie;
+}
+
 void eksportujDane(EksportDanych& eksportDanych) {
     std::cout << "\n=== Eksport danych ===\n";
     std::cout << "1. Eksportuj klientów do CSV\n";
     std::cout << "2. Eksportuj karnety do CSV\n";
     std::cout << "3. Eksportuj zajęcia do CSV\n";
+    std::cout << "4. Eksportuj rezerwacje do CSV\n";
+    std::cout << "5. Eksportuj wszystkie dane\n";
+    std::cout << "6. Eksportuj wszystkie dane (JSON)\n";
     std::cout << "Wybierz opcję: ";
 
     int wybor;
     std::cin >> wybor;
 
     try {
+        // Pobierz i przygotuj folder eksportu
+        std::string folderEksport = pobierzSciezkeEksportu();
+        std::cout << " Używam folderu: " << folderEksport << "/" << std::endl;
+
+        // Zapytaj użytkownika czy chce timestamp w nazwach plików
+        char dodajTimestamp;
+        std::cout << "Czy dodać datę i czas do nazw plików? (T/N): ";
+        std::cin >> dodajTimestamp;
+        bool czyDodacTimestamp = (dodajTimestamp == 'T' || dodajTimestamp == 't');
+
         switch (wybor) {
-        case 1:
-            eksportDanych.eksportujKlientowDoCSV("C:/Users/Kacper/OneDrive/Pulpit/SnakeAI/Silka/eksport/klienci_export.csv");
-            std::cout << "Eksportowano klientów do pliku klienci_export.csv\n";
+        case 1: {
+            std::string sciezka = utworzSciezkePliku(folderEksport, "klienci", "csv", czyDodacTimestamp);
+            eksportDanych.eksportujKlientowDoCSV(sciezka);
+            std::cout << " Eksportowano klientów do: " << sciezka << std::endl;
             break;
-        case 2:
-            eksportDanych.eksportujKarnetyDoCSV("C:/Users/Kacper/OneDrive/Pulpit/SnakeAI/Silka/eksport/karnety_export.csv");
-            std::cout << "Eksportowano karnety do pliku karnety_export.csv\n";
-            break;
-        case 3:
-            eksportDanych.eksportujZajeciaDoCSV("C:/Users/Kacper/OneDrive/Pulpit/SnakeAI/Silka/eksport/zajecia_export.csv");
-            std::cout << "Eksportowano zajęcia do pliku zajecia_export.csv\n";
-            break;
-        default:
-            std::cout << "Nieprawidłowy wybór.\n";
         }
+        case 2: {
+            std::string sciezka = utworzSciezkePliku(folderEksport, "karnety", "csv", czyDodacTimestamp);
+            eksportDanych.eksportujKarnetyDoCSV(sciezka);
+            std::cout << " Eksportowano karnety do: " << sciezka << std::endl;
+            break;
+        }
+        case 3: {
+            std::string sciezka = utworzSciezkePliku(folderEksport, "zajecia", "csv", czyDodacTimestamp);
+            eksportDanych.eksportujZajeciaDoCSV(sciezka);
+            std::cout << " Eksportowano zajęcia do: " << sciezka << std::endl;
+            break;
+        }
+        case 4: {
+            std::string sciezka = utworzSciezkePliku(folderEksport, "rezerwacje", "csv", czyDodacTimestamp);
+            eksportDanych.eksportujRezerwacjeDoCSV(sciezka);
+            std::cout << " Eksportowano rezerwacje do: " << sciezka << std::endl;
+            break;
+        }
+        case 5: {
+            std::cout << " Eksportowanie wszystkich danych do CSV...\n";
+
+            std::string sciezkaKlienci = utworzSciezkePliku(folderEksport, "klienci", "csv", czyDodacTimestamp);
+            std::string sciezkaKarnety = utworzSciezkePliku(folderEksport, "karnety", "csv", czyDodacTimestamp);
+            std::string sciezkaZajecia = utworzSciezkePliku(folderEksport, "zajecia", "csv", czyDodacTimestamp);
+            std::string sciezkaRezerwacje = utworzSciezkePliku(folderEksport, "rezerwacje", "csv", czyDodacTimestamp);
+
+            eksportDanych.eksportujKlientowDoCSV(sciezkaKlienci);
+            eksportDanych.eksportujKarnetyDoCSV(sciezkaKarnety);
+            eksportDanych.eksportujZajeciaDoCSV(sciezkaZajecia);
+            eksportDanych.eksportujRezerwacjeDoCSV(sciezkaRezerwacje);
+
+            std::cout << " Eksportowano wszystkie dane CSV do folderu: " << folderEksport << "/" << std::endl;
+            std::cout << sciezkaKlienci << std::endl;
+            std::cout << sciezkaKarnety << std::endl;
+            std::cout << sciezkaZajecia << std::endl;
+            std::cout << sciezkaRezerwacje << std::endl;
+            break;
+        }
+        case 6: {
+            std::cout << " Eksportowanie wszystkich danych do JSON...\n";
+
+            std::string sciezkaKlienci = utworzSciezkePliku(folderEksport, "klienci", "json", czyDodacTimestamp);
+            std::string sciezkaKarnety = utworzSciezkePliku(folderEksport, "karnety", "json", czyDodacTimestamp);
+            std::string sciezkaZajecia = utworzSciezkePliku(folderEksport, "zajecia", "json", czyDodacTimestamp);
+            std::string sciezkaRezerwacje = utworzSciezkePliku(folderEksport, "rezerwacje", "json", czyDodacTimestamp);
+
+            eksportDanych.eksportujKlientowDoJSON(sciezkaKlienci);
+            eksportDanych.eksportujKarnetyDoJSON(sciezkaKarnety);
+            eksportDanych.eksportujZajeciaDoJSON(sciezkaZajecia);
+            eksportDanych.eksportujRezerwacjeDoJSON(sciezkaRezerwacje);
+
+            std::cout << " Eksportowano wszystkie dane JSON do folderu: " << folderEksport << "/" << std::endl;
+            std::cout << sciezkaKlienci << std::endl;
+            std::cout << sciezkaKarnety << std::endl;
+            std::cout << sciezkaZajecia << std::endl;
+            std::cout << sciezkaRezerwacje << std::endl;
+            break;
+        }
+        default:
+            std::cout << " Nieprawidłowy wybór.\n";
+            return;
+        }
+
+        // Pokaż zawartość folderu eksport po eksporcie
+        std::cout << "\n Aktualna zawartość folderu eksport:\n";
+        try {
+            int licznikPlikow = 0;
+            for (const auto& entry : std::filesystem::directory_iterator(folderEksport)) {
+                if (entry.is_regular_file()) {
+                    auto fileSize = std::filesystem::file_size(entry.path());
+                    std::cout << entry.path().filename().string()
+                        << " (" << fileSize << " bajtów)" << std::endl;
+                    licznikPlikow++;
+                }
+            }
+            if (licznikPlikow == 0) {
+                std::cout << "   (folder pusty)" << std::endl;
+            }
+            else {
+                std::cout << "   Łącznie plików: " << licznikPlikow << std::endl;
+            }
+        }
+        catch (const std::exception& e) {
+            std::cout << "   (nie można wyświetlić zawartości: " << e.what() << ")" << std::endl;
+        }
+
     }
     catch (const std::exception& e) {
-        std::cerr << "Błąd eksportu: " << e.what() << std::endl;
+        std::cerr << " Błąd eksportu: " << e.what() << std::endl;
     }
 }
 
@@ -853,10 +1000,9 @@ void importujDane(ImportDanych& importDanych) {
     }
 }
 
-// === FUNKCJA MAIN ===
 
 int main() {
-    // Ustawienie kodowania dla polskich znaków
+    // Ustawienie kodowania dla polskich znaków (które nie działa :<)
     SetConsoleOutputCP(CP_UTF8);
 
     std::cout << "=== Inicjalizacja systemu zarządzania siłownią ===\n";

@@ -1,4 +1,3 @@
-// models/karnet.cpp
 #define _CRT_SECURE_NO_WARNINGS
 #include "karnet.h"
 #include <sstream>

@@ -1,4 +1,3 @@
-// utils/historia_zmian.h
 #ifndef HISTORIA_ZMIAN_H
 #define HISTORIA_ZMIAN_H
 

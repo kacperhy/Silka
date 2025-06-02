@@ -1,4 +1,3 @@
-// utils/historia_zmian.cpp
 #define _CRT_SECURE_NO_WARNINGS
 #include "historia_zmian.h"
 #include <iostream>
